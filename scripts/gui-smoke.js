@@ -15,6 +15,9 @@
     assert(!document.body.textContent.includes('demo-password'),'password leaked in masked view');
     await sleep(300); await harness('Capture','inventory');
     await click('reveal'); assert($('rows').textContent.includes('demo-password'),'reveal failed');
+    document.querySelector('.row-details').click();
+    assert($('details-dialog').open && $('details').textContent.includes('demo-password'),'camera details failed');
+    $('details-dialog').close();
     await click('reveal'); assert(!document.body.textContent.includes('demo-password'),'hide failed');
     $('filter').value='Hikvision'; await click('apply-filter'); assert($('rows').children.length===2,'filter failed');
     await sleep(200); await harness('Capture','filtered');

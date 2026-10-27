@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed frontend/*
@@ -98,6 +99,17 @@ func main() {
 		URL: "/", UseApplicationMenu: true,
 		Windows: application.WindowsWindow{Theme: application.SystemDefault},
 		Linux:   application.LinuxWindow{MenuStyle: application.LinuxMenuStylePrimaryMenu},
+	})
+	// Leave native title bars, menus and taskbars visible on smaller desktops.
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		if screen := app.Screen.GetPrimary(); screen != nil {
+			width := min(1240, max(860, screen.WorkArea.Width-40))
+			height := min(800, max(580, screen.WorkArea.Height-80))
+			if width < 1240 || height < 800 {
+				window.SetSize(width, height)
+				window.Center()
+			}
+		}
 	})
 	service.chooseOpen = func() (string, error) {
 		return app.Dialog.OpenFile().AttachToWindow(window).SetTitle("Open Nx Witness database").
