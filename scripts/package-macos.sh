@@ -39,13 +39,14 @@ codesign --verify --deep --strict "$app"
 pkgbuild --component "$app" --install-location /Applications --identifier com.loudas.nx-camera-info --version "$version" "$stage/app.pkg"
 mkdir "$stage/resources"
 cp packaging/macos-welcome.html "$stage/resources/welcome.html"
-cp packaging/icon.png "$stage/resources/icon.png"
+cp packaging/icons/128.png "$stage/resources/icon.png"
 hostarch=x86_64
 if [ "$arch" = arm64 ]; then hostarch=arm64; fi
 cat > "$stage/Distribution.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <installer-gui-script minSpecVersion="2">
   <title>NX Camera Info</title>
+  <background file="icon.png" mime-type="image/png" alignment="bottomleft" scaling="none"/>
   <welcome file="welcome.html" mime-type="text/html"/>
   <options customize="never" require-scripts="false" hostArchitectures="$hostarch"/>
   <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
@@ -63,7 +64,7 @@ python3 - "$stage/pkg-expanded" <<'PY'
 from pathlib import Path
 import sys
 root = Path(sys.argv[1]) / 'Resources'
-for name, source in [('icon.png', 'packaging/icon.png'), ('welcome.html', 'packaging/macos-welcome.html')]:
+for name, source in [('icon.png', 'packaging/icons/128.png'), ('welcome.html', 'packaging/macos-welcome.html')]:
     matches = list(root.rglob(name))
     assert matches, f'Missing installer resource {name}: {list(root.rglob("*"))}'
     assert all(p.read_bytes() == Path(source).read_bytes() for p in matches), name

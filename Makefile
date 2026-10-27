@@ -4,14 +4,14 @@ GOEXE := $(shell $(GO) env GOEXE)
 .PHONY: build test check release linux-amd64 linux-arm64 windows-amd64 windows-arm64 macos-amd64 macos-arm64
 
 .PHONY: gui gui-test branding
-branding:
-	python3 scripts/brand-assets.py
-
 gui:
 	$(GO) build -tags gui,production -trimpath -ldflags='-s -w' -o dist/nx-camera-info-gui$(GOEXE) .
 
 gui-test:
 	$(GO) build -tags gui,guismoke,production -o dist/nx-camera-info-gui-test$(GOEXE) .
+
+branding:
+	python3 scripts/brand-assets.py
 
 build:
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags='-s -w' -o dist/nx-camera-info$(GOEXE) .
