@@ -20,6 +20,9 @@ import (
 //go:embed frontend/*
 var guiAssets embed.FS
 
+//go:embed packaging/icon.png
+var desktopIcon []byte
+
 var guiConfigure = func(*DesktopService, *application.App, *application.WebviewWindow) {}
 var guiAfterRun = func() {}
 var guiExtraServices []application.Service
@@ -90,9 +93,11 @@ func main() {
 	services := append([]application.Service{application.NewService(service)}, guiExtraServices...)
 	app := application.New(application.Options{
 		Name: "NX Camera Info", Description: "Camera inventory and saved credentials • " + version,
+		Icon:     desktopIcon,
 		Services: services,
 		Assets:   application.AssetOptions{Handler: application.BundledAssetFileServer(assets)},
 		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		Linux:    application.LinuxOptions{ApplicationID: "com.loudas.nx-camera-info", ProgramName: "nx-camera-info"},
 	})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "NX Camera Info", Width: 1240, Height: 800, MinWidth: 860, MinHeight: 580,

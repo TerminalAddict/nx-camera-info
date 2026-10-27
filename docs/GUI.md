@@ -2,9 +2,11 @@
 
 The desktop application uses Wails v3 with GTK4/WebKitGTK 6.0 on Linux, WebView2 on Windows, and the system WebKit view on macOS. It shares the same database reader, credential decoder, masking rules, and export formats as the CLI.
 
+The CCTV camera and information badge appear in the app, desktop icons and installers. See the [branding guide](BRANDING.md) for the artwork and platform integration.
+
 ## Install
 
-Download the package for your operating system and processor from [v0.2.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.2.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.2.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.2.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -29,13 +31,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.2.0-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.2.1-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.2.0-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.2.1-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -44,7 +46,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.2.0-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.2.1-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -68,7 +70,7 @@ The application does not contact cameras, test logins, modify camera configurati
 
 ## Screenshots
 
-These are captures of the running GUI with a generated **synthetic** database. Camera names, addresses in the documentation-only `192.0.2.0/24` range, and credentials are demonstration data.
+These are captures of the running GUI with a generated **synthetic** database. Camera names, addresses in the documentation-only `192.0.2.1/24` range, and credentials are demonstration data.
 
 ### Camera inventory — Linux GTK4
 

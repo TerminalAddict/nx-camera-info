@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.2.0
+version=0.2.1
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-mkdir -p "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/512x512/apps" "$stage/usr/share/doc/nx-camera-info-gui" dist/installers
+mkdir -p "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/doc/nx-camera-info-gui" dist/installers
 install -m755 dist/nx-camera-info-gui "$stage/usr/bin/"
 install -m644 packaging/nx-camera-info.desktop "$stage/usr/share/applications/"
-install -m644 packaging/icon.png "$stage/usr/share/icons/hicolor/512x512/apps/nx-camera-info.png"
+for size in 16 24 32 48 64 128 256 512; do
+  mkdir -p "$stage/usr/share/icons/hicolor/${size}x${size}/apps"
+  install -m644 "packaging/icons/$size.png" "$stage/usr/share/icons/hicolor/${size}x${size}/apps/nx-camera-info.png"
+done
+install -m644 branding/icon.svg "$stage/usr/share/icons/hicolor/scalable/apps/nx-camera-info.svg"
 install -m644 THIRD_PARTY_NOTICES.txt GUI_THIRD_PARTY_NOTICES.txt "$stage/usr/share/doc/nx-camera-info-gui/"
 mkdir "$stage/DEBIAN"
 mkdir -p "$stage/etc/apparmor.d"
@@ -50,12 +54,14 @@ cp -a $stage/usr/. %{buildroot}/usr/
 %files
 /usr/bin/nx-camera-info-gui
 /usr/share/applications/nx-camera-info.desktop
-/usr/share/icons/hicolor/512x512/apps/nx-camera-info.png
+/usr/share/icons/hicolor/*/apps/nx-camera-info.*
 /usr/share/doc/nx-camera-info-gui/*
 EOF
 rpmbuild --define "_topdir $stage/rpm" --define '_build_id_links none' --define '__os_install_post %{nil}' --target "$rpmarch" -bb "$stage/rpm/SPECS/nx.spec"
 cp "$stage/rpm/RPMS/$rpmarch/"*.rpm "dist/installers/nx-camera-info-gui-${version}-linux-${arch}.rpm"
 mkdir "$stage/archive"
+cp -R packaging/icons "$stage/archive/"
+install -m644 branding/icon.svg "$stage/archive/"
 install -m755 dist/nx-camera-info-gui packaging/install-dependencies.sh packaging/install.sh "$stage/archive/"
 install -m644 THIRD_PARTY_NOTICES.txt GUI_THIRD_PARTY_NOTICES.txt packaging/linux-README.txt packaging/icon.png packaging/nx-camera-info.desktop packaging/apparmor-profile "$stage/archive/"
 tar -czf "dist/installers/nx-camera-info-gui-${version}-linux-${arch}.tar.gz" -C "$stage/archive" .
