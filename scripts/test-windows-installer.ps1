@@ -15,11 +15,21 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
 }
 function Record([string]$Message) { $checks.Add($Message); Write-Host "PASS: $Message" }
+function Remove-TestFile([string]$Path) {
+    # Windows/Defender can briefly retain a just-exited test executable.
+    for ($i = 0; $i -lt 25; $i++) {
+        try { Remove-Item -LiteralPath $Path -Force; return }
+        catch { if ($i -eq 24) { throw }; Start-Sleep -Milliseconds 200 }
+    }
+}
 function Run-Setup([string]$Directory, [bool]$Success = $true) {
     # NSIS /D= must be the final argument and must not be quoted, including spaces.
     $p = Start-Process -FilePath $Installer -ArgumentList "/S /D=$Directory" -PassThru
-    if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'Setup timed out.' }
-    Assert-True (($p.ExitCode -eq 0) -eq $Success) "Unexpected setup exit code $($p.ExitCode); expected success=$Success"
+    try {
+        if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'Setup timed out.' }
+        Write-Host "Setup exit: $($p.ExitCode) (expected success=$Success)"
+        Assert-True (($p.ExitCode -eq 0) -eq $Success) "Unexpected setup exit code $($p.ExitCode); expected success=$Success"
+    } finally { $p.Dispose() }
 }
 function Run-Uninstall([string]$Directory, [bool]$Success = $true) {
     # Run a temporary copy directly, so the waited process reports the actual
@@ -27,9 +37,12 @@ function Run-Uninstall([string]$Directory, [bool]$Success = $true) {
     $copy = Join-Path $scratch ('uninstall-' + [Guid]::NewGuid() + '.exe')
     Copy-Item (Join-Path $Directory 'Uninstall.exe') $copy
     $p = Start-Process -FilePath $copy -ArgumentList "/S _?=$Directory" -PassThru
-    if (-not $p.WaitForExit(90000)) { $p.Kill(); throw 'Uninstall timed out.' }
-    Assert-True (($p.ExitCode -eq 0) -eq $Success) "Unexpected uninstall exit code $($p.ExitCode); expected success=$Success"
-    Remove-Item $copy
+    try {
+        if (-not $p.WaitForExit(90000)) { $p.Kill(); throw 'Uninstall timed out.' }
+        Write-Host "Uninstall exit: $($p.ExitCode) (expected success=$Success)"
+        Assert-True (($p.ExitCode -eq 0) -eq $Success) "Unexpected uninstall exit code $($p.ExitCode); expected success=$Success"
+    } finally { $p.Dispose() }
+    Remove-TestFile $copy
 }
 function Get-InstallLocation {
     $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryView]::Registry32)
@@ -146,7 +159,12 @@ try {
         @{ passed=$true; architecture=$env:PROCESSOR_ARCHITECTURE; checks=$checks.ToArray() } |
             ConvertTo-Json -Depth 4 | Set-Content (Join-Path $env:NX_GUI_TEST_DIR 'installer-result.json')
     }
+} catch {
+    Write-Host "Installer regression failure: $($_.Exception.Message)"
+    Write-Host $_.ScriptStackTrace
+    throw
 } finally {
     foreach ($p in $processes) { if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force } }
-    Remove-Item -Recurse -Force $scratch
+    # Preserve the original assertion if cleanup of disposable test files fails.
+    Remove-Item -Recurse -Force $scratch -ErrorAction Continue
 }
