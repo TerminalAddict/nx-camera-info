@@ -59,8 +59,16 @@ cat > "$stage/Distribution.xml" <<EOF
 EOF
 productbuild --distribution "$stage/Distribution.xml" --resources "$stage/resources" --package-path "$stage" "dist/installers/nx-camera-info-gui-${version}-macos-${arch}.pkg"
 pkgutil --expand "dist/installers/nx-camera-info-gui-${version}-macos-${arch}.pkg" "$stage/pkg-expanded"
-test -s "$stage/pkg-expanded/Resources/icon.png"
-test -s "$stage/pkg-expanded/Resources/welcome.html"
+python3 - "$stage/pkg-expanded" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1]) / 'Resources'
+for name, source in [('icon.png', 'packaging/icon.png'), ('welcome.html', 'packaging/macos-welcome.html')]:
+    matches = list(root.rglob(name))
+    assert matches, f'Missing installer resource {name}: {list(root.rglob("*"))}'
+    assert all(p.read_bytes() == Path(source).read_bytes() for p in matches), name
+    print('Verified installer resource:', matches[0].relative_to(root))
+PY
 mkdir "$stage/dmg"
 cp -R "$app" "$stage/dmg/"
 ln -s /Applications "$stage/dmg/Applications"

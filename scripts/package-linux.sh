@@ -51,6 +51,14 @@ Read-only desktop camera inventory and saved credential recovery.
 %install
 mkdir -p %{buildroot}/usr
 cp -a $stage/usr/. %{buildroot}/usr/
+%post
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+fi
+%postun
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+fi
 %files
 /usr/bin/nx-camera-info-gui
 /usr/share/applications/nx-camera-info.desktop
