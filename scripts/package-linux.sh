@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.2.1
+version=0.3.0
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/doc/nx-camera-info-gui" dist/installers

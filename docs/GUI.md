@@ -6,7 +6,7 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.2.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.2.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.3.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -31,13 +31,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.2.1-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.3.0-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.2.1-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.3.0-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -46,7 +46,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.2.1-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.3.0-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -68,9 +68,25 @@ Passwords are masked by default, including URL user information, query strings, 
 
 The application does not contact cameras, test logins, modify camera configuration, or alter database contents. SQLite may use WAL/SHM sidecars when opening a database with committed WAL data. Follow the [database backup guidance](../README.md#database-and-format-support) when copying a running server's database.
 
+## About and updates
+
+Open **About & updates** in the sidebar or **Help → About NX Camera Info**. On macOS, **NX Camera Info → About NX Camera Info** opens the same page. It shows the installed version, OS/CPU, build details, and an introduction to creator [Paul Willard](https://paulwillard.nz/). The biography and portrait are available offline.
+
+Click **Check for updates**, or use **Help → Check for Updates…**, to query this project's latest stable GitHub release. Checks are manual. No database contents, filenames, camera information, or credentials are sent to GitHub. The request includes the app version in its user agent; GitHub sees normal connection information such as your IP address.
+
+When a newer version is available:
+
+1. Choose a package for your current OS and CPU. Linux offers DEB, RPM, and tar.gz when published; macOS offers PKG and DMG; Windows offers its matching setup EXE.
+2. Click **Download update…** and choose a destination in the native Save dialog. The app downloads the installer with progress and cancellation, then verifies its size and SHA-256 against GitHub's release metadata. Existing files are preserved; failed or cancelled downloads are removed.
+3. Click **Show downloaded installer**, quit NX Camera Info, then run the installer. On Linux, use APT/DNF as shown above, or extract the archive and run `install.sh`; on macOS, run the PKG or drag the app from the DMG into Applications. Relaunch and check the version.
+
+This is an in-app download with installation completed by the platform installer. It does not silently replace the running app or bypass operating-system installation prompts. If no verified matching package is available, the About page offers the release page. Offline and rate-limit errors can be retried. Version 0.2.1 and earlier require one manual download of 0.3.0 to gain this feature.
+
+![About page with version, creator biography, and update check](screenshots/gui-about.png)
+
 ## Screenshots
 
-These are captures of the running GUI with a generated **synthetic** database. Camera names, addresses in the documentation-only `192.0.2.1/24` range, and credentials are demonstration data.
+These are captures of the running GUI with a generated **synthetic** database. Camera names, addresses in the documentation-only `192.0.2.0/24` range, and credentials are demonstration data.
 
 ### Camera inventory — Linux GTK4
 
@@ -109,7 +125,7 @@ The Windows and macOS captures come from native CI desktops. The macOS menu iden
 | Close database | Ctrl+Shift+W | Command+Shift+W |
 | Quit | Ctrl+Q | Command+Q |
 
-Menus, window controls, Open/Save dialogs, and the About dialog use Wails' native platform integration. The camera table and controls use platform-adapted HTML/CSS with system fonts, keyboard focus indicators, and system light/dark appearance. Linux uses a GTK header-bar menu, Windows a menu bar, and macOS the application menu.
+Menus, window controls, Open/Save dialogs, browser links, and revealing downloaded installers use Wails' native platform integration. The About page, camera table, and controls use platform-adapted HTML/CSS with system fonts, keyboard focus indicators, and system light/dark appearance. Linux uses a GTK header-bar menu, Windows a menu bar, and macOS the application menu.
 
 ## Build and validate
 
@@ -125,7 +141,7 @@ make gui
 
 On macOS install Xcode command-line tools first; `make gui` creates the executable, and `bash scripts/package-macos.sh` creates the app bundle, PKG and DMG. On Windows, generate the resources with `go run ./cmd/windows-resource amd64` (or `arm64`), then build with `go build -tags gui,production -ldflags="-s -w -H windowsgui" -o dist/nx-camera-info-gui.exe .`.
 
-The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. Only native file-selection results are substituted in the automated test; the real Go services, Wails bridge, rendered controls, and SQLite reader are exercised. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
+The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. It also checks the About page, portrait, version, links, current/new release states, offline errors, download cancellation, checksum failure, retry, and saving/revealing a verified download. Native dialog selections, external browser/file-manager launches, and GitHub HTTP responses are substituted in these automated tests; the real Go services, updater, file writes, Wails bridge, rendered controls, and SQLite reader are exercised. The synthetic update payload is never executed. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
 
 For a local native Linux UI test and fresh screenshots:
 

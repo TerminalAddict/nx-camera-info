@@ -3,15 +3,15 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 Name "NX Camera Info"
-OutFile "..\dist\installers\nx-camera-info-gui-0.2.1-windows-${ARCH}-setup.exe"
+OutFile "..\dist\installers\nx-camera-info-gui-0.3.0-windows-${ARCH}-setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\NX Camera Info"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-VIProductVersion "0.2.1.0"
+VIProductVersion "0.3.0.0"
 VIAddVersionKey "ProductName" "NX Camera Info"
 VIAddVersionKey "FileDescription" "NX Camera Info Setup"
-VIAddVersionKey "FileVersion" "0.2.1"
-VIAddVersionKey "ProductVersion" "0.2.1"
+VIAddVersionKey "FileVersion" "0.3.0"
+VIAddVersionKey "ProductVersion" "0.3.0"
 BrandingText "NX Camera Info"
 !define MUI_ABORTWARNING
 !define MUI_ICON "icon.ico"
@@ -81,7 +81,7 @@ Section "Install"
   CreateShortcut "$DESKTOP\NX Camera Info.lnk" "$INSTDIR\nx-camera-info-gui.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayName" "NX Camera Info"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayVersion" "0.2.1"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayVersion" "0.3.0"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayIcon" "$INSTDIR\nx-camera-info-gui.exe"
 SectionEnd

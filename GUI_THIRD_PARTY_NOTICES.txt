@@ -2,6 +2,13 @@ Third-party notices for NX Camera Info GUI
 
 Also retain THIRD_PARTY_NOTICES.txt, which includes Go, SQLite and other bundled dependency notices. GTK, WebKit and WebView2 are supplied under their respective system/runtime licenses.
 
+About page biography and portrait
+
+The biography is adapted from https://paulwillard.nz/ (accessed 28 October 2026).
+The unmodified portrait at frontend/paul-willard.webp comes from
+https://www.paulwillard.nz/assets/images/optimized/paul-lw-220.webp,
+also used by SADPTools, and is bundled locally for offline display.
+
 github.com/adrg/xdg v0.5.3
 
 LICENSE

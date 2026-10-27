@@ -1,4 +1,5 @@
 import { Call } from '/wails/runtime.js';
+import { initialiseAbout } from './about.js';
 
 const $ = id => document.getElementById(id);
 const call = (method, ...args) => Call.ByName(`main.DesktopService.${method}`, ...args);
@@ -116,6 +117,7 @@ document.querySelectorAll('[data-sort]').forEach(button => button.addEventListen
 try {
   const info = await call('Info'); document.body.dataset.platform = info.platform;
   $('version').textContent = 'Version ' + info.version;
+  await initialiseAbout(info, call);
   window.appReady = true;
 } catch (error) { message('Could not connect to the database reader: ' + (error.message || error), true); }
 render(null);

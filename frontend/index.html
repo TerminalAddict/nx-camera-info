@@ -15,7 +15,7 @@
     <div class="nav-label">WORKSPACE</div>
     <div class="nav-item"><span aria-hidden="true">▦</span> Camera inventory</div>
     <div class="source"><div class="nav-label">OPEN DATABASE</div><strong id="filename">No database selected</strong><p id="loaded-at">Open a database to begin.</p><button id="close" class="quiet" disabled>Close database</button></div>
-    <div class="sidebar-bottom"><span class="dot"></span> Local &amp; read only<p>Your database stays on this computer.</p><small id="version"></small></div>
+    <div class="sidebar-bottom"><span class="dot"></span> Local &amp; read only<p>Your database stays on this computer.</p><button id="about-open" class="sidebar-about">About &amp; updates <span aria-hidden="true">↗</span></button><small id="version"></small></div>
   </aside>
   <main>
     <header><div><div class="eyebrow">NX WITNESS</div><h1>Camera inventory</h1><p>Explore devices and recover saved camera credentials.</p></div><button id="open" class="primary"><span aria-hidden="true">＋</span> Open database…</button></header>
@@ -38,5 +38,24 @@
   </main>
   <dialog id="export-dialog" aria-labelledby="export-title"><form method="dialog"><h2 id="export-title">Export camera inventory</h2><p id="export-scope"></p><fieldset><legend>File format</legend><label class="format-option"><input type="radio" name="format" value="csv" checked><span><strong>CSV spreadsheet</strong><small>Camera details in rows and columns</small></span></label><label class="format-option"><input type="radio" name="format" value="json"><span><strong>JSON document</strong><small>Full details and summary for scripts</small></span></label></fieldset><p id="export-privacy" class="export-privacy"></p><p class="subtle">Existing files are preserved. Choose a new filename.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button id="save-export" type="button" class="primary">Choose destination…</button></div></form></dialog>
   <dialog id="details-dialog" aria-labelledby="details-title"><h2 id="details-title">Camera details</h2><p id="details-subtitle"></p><dl id="details"></dl><form method="dialog" class="dialog-actions"><button autofocus>Close</button></form></dialog>
+  <button id="updates-open" hidden aria-hidden="true" tabindex="-1">Check for updates</button>
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <div class="about-heading"><img src="icon.svg" width="52" height="52" alt=""><div><div class="eyebrow">DATABASE EXPLORER</div><h2 id="about-title">About NX Camera Info</h2></div><form method="dialog"><button id="about-close" class="quiet" aria-label="Close About" autofocus>✕</button></form></div>
+    <p class="about-description">Explore an Nx Witness database, recover saved camera credentials, and export your inventory.</p>
+    <section class="about-update" aria-label="Version and updates">
+      <div class="update-heading"><div><strong>Version <span id="about-version">—</span></strong><small id="about-platform"></small></div><button id="check-updates">Check for updates</button></div>
+      <p id="update-status" role="status" aria-live="polite">Check GitHub for a new version.</p>
+      <p id="update-error" role="alert" hidden></p>
+      <div id="update-offer" hidden><label for="update-package">Installer for this computer</label><select id="update-package"></select><button id="download-update" class="primary">Download update…</button></div>
+      <div id="update-progress-wrap" hidden><progress id="update-progress" max="100" value="0" aria-label="Update download progress"></progress><div class="progress-caption"><span id="update-progress-label"></span><button id="cancel-update" class="quiet">Cancel download</button></div></div>
+      <div id="update-saved" hidden><p id="update-path"></p><button id="show-update">Show downloaded installer</button></div>
+      <button id="release-link" class="text-link" data-link="release" hidden>Release notes on GitHub ↗</button>
+      <p class="subtle update-privacy">Checks run only when you ask. Only release requests go to GitHub; your database and camera details stay on this computer.</p>
+    </section>
+    <section class="about-author" aria-labelledby="author-name"><img src="paul-willard.webp" alt="Paul Willard" width="96" height="96"><div><div class="eyebrow">CREATED BY</div><h3 id="author-name">Paul Willard</h3><p class="author-location">TerminalAddict · Waikato, New Zealand</p><p class="author-quote">“At heart, I’m a geek.”</p><p>Paul is a systems engineer, network manager and longtime Linux enthusiast. He owns Central Communications and has led infrastructure, customer support and development teams. His work spans ISP networks, wireless systems, firewalls and Linux servers, with a passion for telecommunications and business strategy.</p></div></section>
+    <div class="about-links"><button data-link="author">Paul’s website ↗</button><button data-link="project">Project on GitHub ↗</button></div>
+    <p id="about-error" role="alert" hidden></p>
+    <details class="about-credits"><summary>Build information &amp; credits</summary><p id="about-build"></p><p>Built with Go, Wails v3 and SQLite. Uses the system WebView: WebKitGTK on Linux, WebView2 on Windows, and WebKit on macOS. Third-party licence notices are included with the application.</p><p>Biography and portrait from Paul’s website, bundled for offline viewing. NX Camera Info is an independent project and is not affiliated with Network Optix.</p></details>
+  </dialog>
 </body>
 </html>
