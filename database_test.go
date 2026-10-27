@@ -18,8 +18,12 @@ import (
 // Deliberately small synthetic database: no user data belongs in test fixtures.
 func fixture(t *testing.T) (string, *sql.DB) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "camera #1 ? backup.sqlite")
-	uri := &url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
+	name := "camera #1 100% café.sqlite"
+	if runtime.GOOS != "windows" {
+		name = "camera #1 ? 100% café.sqlite"
+	}
+	path := filepath.Join(t.TempDir(), name)
+	uri := databaseFileURL(filepath.ToSlash(path))
 	db, err := sql.Open("sqlite", uri.String())
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +61,25 @@ INSERT INTO vms_kvpair(resource_guid, name, value) VALUES
 		t.Fatal(err)
 	}
 	return path, db
+}
+
+func TestDatabaseFileURL(t *testing.T) {
+	for _, tc := range []struct{ path, want string }{
+		{"/tmp/camera #1 ? 100% café.sqlite", "file:///tmp/camera%20%231%20%3F%20100%25%20caf%C3%A9.sqlite"},
+		{"C:/Camera backups/ecs.sqlite", "file:///C:/Camera%20backups/ecs.sqlite"},
+		{"d:/camera #1 100%.sqlite", "file:///d:/camera%20%231%20100%25.sqlite"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			uri := databaseFileURL(tc.path)
+			if got := uri.String(); got != tc.want {
+				t.Fatalf("database URI = %q, want %q", got, tc.want)
+			}
+			parsed, err := url.Parse(uri.String())
+			if err != nil || parsed.Host != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+				t.Fatalf("filename escaped into another URI component: %v, %v", parsed, err)
+			}
+		})
+	}
 }
 
 func TestReadReport(t *testing.T) {

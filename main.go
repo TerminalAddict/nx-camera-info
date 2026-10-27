@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -17,10 +18,14 @@ import (
 	"unicode"
 )
 
-const (
-	version             = "0.1.1"
-	defaultDatabasePath = "/opt/networkoptix/mediaserver/var/ecs.sqlite"
-)
+const version = "0.1.2"
+
+func defaultDatabasePath() string {
+	if runtime.GOOS == "linux" {
+		return "/opt/networkoptix/mediaserver/var/ecs.sqlite"
+	}
+	return "ecs.sqlite"
+}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -30,9 +35,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	var opts Options
 	flags := flag.NewFlagSet("nx-camera-info", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&opts.DB, "db", defaultDatabasePath, "path to an Nx Witness ecs.sqlite database (read only)")
+	flags.StringVar(&opts.DB, "db", defaultDatabasePath(), "path to an Nx Witness ecs.sqlite database (read only)")
 	flags.StringVar(&opts.Format, "format", "table", "output format: table, json, csv; JSON and CSV include additional camera details")
-	flags.StringVar(&opts.Output, "output", "", "write to a new file with permissions 0600; never overwrite (default: stdout)")
+	flags.StringVar(&opts.Output, "output", "", "write to a new file; never overwrite (0600 on Unix, inherited directory permissions on Windows; default: stdout)")
 	flags.StringVar(&opts.Filter, "filter", "", "case-insensitive match on name, host/IP, UUID, vendor, model, MAC, group, logical ID or server")
 	flags.BoolVar(&opts.ShowPasswords, "show-passwords", false, "reveal saved passwords and complete URLs")
 	flags.BoolVar(&opts.IncludeVirtual, "include-virtual", false, "include virtual desktop camera records")

@@ -92,7 +92,7 @@ func openDatabase(path string) (*sql.DB, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("database must be a regular file")
 	}
-	uri := &url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}
+	uri := databaseFileURL(filepath.ToSlash(absolute))
 	query := url.Values{"mode": {"ro"}, "_pragma": {"query_only(1)", "busy_timeout(5000)"}}
 	uri.RawQuery = query.Encode()
 	db, err := sql.Open("sqlite", uri.String())
@@ -101,6 +101,16 @@ func openDatabase(path string) (*sql.DB, error) {
 	}
 	db.SetMaxOpenConns(1)
 	return db, nil
+}
+
+// databaseFileURL takes an absolute path with forward slashes. A Windows drive
+// letter needs a leading slash so it remains part of the path, not the authority.
+// See https://www.sqlite.org/uri.html#the_uri_path.
+func databaseFileURL(absolute string) *url.URL {
+	if len(absolute) >= 3 && absolute[1] == ':' && absolute[2] == '/' {
+		absolute = "/" + absolute
+	}
+	return &url.URL{Scheme: "file", Path: absolute}
 }
 
 // All reads run in one SQLite transaction, so camera records and properties

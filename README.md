@@ -1,6 +1,41 @@
 # nx-camera-info
 
-A standalone command-line tool for listing camera information and recovering saved camera credentials from an Nx Witness `ecs.sqlite` database. It runs locally in the Linux server's shell. It does not require Nx Powertoys, Python, an installed SQLite command, or a running Nx server.
+A standalone command-line tool for listing camera information and recovering saved camera credentials from an Nx Witness `ecs.sqlite` database. It runs in a terminal on Linux, Windows, or macOS. It does not require Nx Powertoys, Python, an installed SQLite command, or a running Nx server.
+
+## Downloads
+
+Get the executable for your computer from the [latest release](https://github.com/TerminalAddict/nx-camera-info/releases/latest):
+
+| System | Executable |
+| --- | --- |
+| Linux Intel/AMD 64-bit | `nx-camera-info-linux-amd64` |
+| Linux ARM64 | `nx-camera-info-linux-arm64` |
+| Windows Intel/AMD 64-bit | `nx-camera-info-windows-amd64.exe` |
+| Windows ARM64 | `nx-camera-info-windows-arm64.exe` |
+| macOS Intel | `nx-camera-info-macos-amd64` |
+| macOS Apple Silicon | `nx-camera-info-macos-arm64` |
+
+Download `THIRD_PARTY_NOTICES.txt` alongside the executable. `SHA256SUMS` contains checksums for the release files. The macOS binaries are not Developer ID-signed or notarized.
+
+On Windows, open PowerShell in the download directory:
+
+```powershell
+.\nx-camera-info-windows-amd64.exe --help
+.\nx-camera-info-windows-amd64.exe --db "C:\Camera backups\ecs.sqlite"
+.\nx-camera-info-windows-amd64.exe --db "C:\Camera backups\ecs.sqlite" --show-passwords --format csv --output camera-export.csv
+```
+
+Use the `windows-arm64.exe` executable instead on Windows ARM64. Exported files inherit Windows directory permissions; choose a private directory when exporting passwords.
+
+On an Apple Silicon Mac, open Terminal in the download directory:
+
+```sh
+chmod +x ./nx-camera-info-macos-arm64
+./nx-camera-info-macos-arm64 --help
+./nx-camera-info-macos-arm64 --db "$HOME/Camera backups/ecs.sqlite"
+```
+
+Use `nx-camera-info-macos-amd64` instead on an Intel Mac. On Windows and macOS, the default database is `ecs.sqlite` in the current directory; use `--db` to select another file. A consistent database backup copied from your Nx server can be read on either system.
 
 ## Run
 
@@ -25,11 +60,11 @@ From this directory:
 ./dist/nx-camera-info --db ecs.sqlite --include-virtual --summary --format json
 ```
 
-The default database path is `/opt/networkoptix/mediaserver/var/ecs.sqlite`. Use `--db ecs.sqlite` to read the copy in the current directory, as in the examples above. There is no automatic fallback to a local file.
+On Linux, the default database path is `/opt/networkoptix/mediaserver/var/ecs.sqlite`. Use `--db ecs.sqlite` to read the copy in the current directory, as in the examples above. There is no automatic fallback from the Linux server path to a local file.
 
 `--help` (or `-h`) explains every option and includes usage examples without requiring a database. If the selected database does not exist, the tool shows the attempted path, guidance for `--db`, and the full help text, then exits with code `1`. All options also accept a single leading dash.
 
-Copy `dist/nx-camera-info` to an x86-64 Linux Nx server and use the default database path:
+Copy `dist/nx-camera-info` (or the downloaded `nx-camera-info-linux-amd64`, renamed to `nx-camera-info`) to an x86-64 Linux Nx server and use the default database path:
 
 ```sh
 chmod +x ./nx-camera-info
@@ -53,7 +88,7 @@ The table shows name, host, username, password, vendor, model, assigned server, 
 
 Passwords are masked by default. The masked view also removes URL userinfo, query strings and fragments; unusual unparseable URLs are suppressed. URL paths remain visible. `--show-passwords` reveals passwords and complete URLs. A blank password with `has_password: false` is distinct from a missing credential record or a decode error. CSV preserves exact field values; use a text-aware import if opening it in spreadsheet software.
 
-`--output` creates a new file with Unix permissions `0600` and refuses to overwrite an existing file or symlink. Shell redirection uses your shell's permissions instead. JSON has `summary` and `cameras` members; summary-only JSON contains just the summary object. Command diagnostics go to stderr, leaving stdout suitable for piping.
+`--output` creates a new file and refuses to overwrite an existing file or symlink. On Linux and macOS it uses Unix permissions `0600`; on Windows it inherits the destination directory's permissions. Shell redirection uses your shell's permissions instead. JSON has `summary` and `cameras` members; summary-only JSON contains just the summary object. Command diagnostics go to stderr, leaving stdout suitable for piping.
 
 Exit codes: `0` successful read (including no matches or missing credentials); `1` argument, database or output error; `2` results emitted but at least one selected camera's credentials could not be decoded.
 
@@ -88,17 +123,35 @@ Format and schema references:
 
 ## Build and test
 
-Requires Go 1.26 or later to build. The SQLite dependency is pinned in `go.mod` and `go.sum`; the first build may download dependencies. The compiled program uses Go's AES implementation and a pure-Go SQLite driver, so it needs neither OpenSSL nor libc at runtime when built with these targets.
+Requires Go 1.26 or later to build. The SQLite dependency is pinned in `go.mod` and `go.sum`; the first build may download dependencies. The compiled program uses Go's AES implementation and a pure-Go SQLite driver, so no separate OpenSSL or SQLite installation is needed. All targets disable CGO; the Linux executables are statically linked, while Windows and macOS use standard system libraries.
+
+The Makefile targets run in a Unix-style shell with Make (the `release` target also needs `sha256sum`):
 
 ```sh
-make build          # dist/nx-camera-info for the build machine
-make check          # go vet and race-enabled tests
-make linux-amd64    # dist/nx-camera-info-linux-amd64
-make linux-arm64    # dist/nx-camera-info-linux-arm64
+make build           # dist/nx-camera-info for this machine (.exe on Windows)
+make check           # go vet and race-enabled tests
+make linux-amd64     # dist/nx-camera-info-linux-amd64
+make linux-arm64     # dist/nx-camera-info-linux-arm64
+make windows-amd64   # dist/nx-camera-info-windows-amd64.exe
+make windows-arm64   # dist/nx-camera-info-windows-arm64.exe
+make macos-amd64     # dist/nx-camera-info-macos-amd64
+make macos-arm64     # dist/nx-camera-info-macos-arm64
+make release         # all six platforms, notices, and SHA256SUMS
+```
+
+To build natively in Windows PowerShell without Make:
+
+```powershell
+$env:CGO_ENABLED = "0"
+go build -trimpath -ldflags="-s -w" -o dist/nx-camera-info.exe .
+Copy-Item THIRD_PARTY_NOTICES.txt dist/
+go test ./...
 ```
 
 Tests use synthetic data and independently generated OpenSSL test vectors. They cover credential precedence, Unicode and colon-containing passwords, corrupt formats, masked URLs, read-only enforcement, committed WAL reads, filename URI escaping, metadata joins, filters, CSV/JSON, output permissions and overwrite refusal. User databases and exported credentials are excluded from Git.
 
-Validation completed: `go vet` and race-enabled tests passed. The Linux x86-64 binary ran against the supplied database; its 31 effective credential pairs matched an independent OpenSSL decoding check, CSV and JSON exports agreed, and the original database's SHA-256 remained unchanged. The Linux ARM64 binary was cross-compiled and identified as a static AArch64 ELF executable, but has not been run on ARM hardware. Both binaries are statically linked. No actual camera login or remote Nx server execution was attempted.
+GitHub Actions runs vet, tests, and executable help/version checks on Linux, Windows, and macOS for AMD64 and ARM64, plus race-enabled tests on Linux and macOS. Release binaries can be cross-compiled on Linux with `make release`.
+
+Initial Linux validation against the supplied database recovered 31 effective credential pairs matching an independent OpenSSL decoding check; CSV and JSON exports agreed, and the original database's SHA-256 remained unchanged. No actual camera login or remote Nx server execution was attempted.
 
 Third-party notices are included in `THIRD_PARTY_NOTICES.txt` and copied into `dist/` by the build targets. Keep them with redistributed binaries.
