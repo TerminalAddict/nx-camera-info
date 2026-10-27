@@ -78,7 +78,7 @@ mkdir "$stage/mount"
 hdiutil attach "$stage/install.dmg" -mountpoint "$stage/mount" -nobrowse -noverify -quiet
 cp "$app/Contents/Resources/AppIcon.icns" "$stage/mount/.VolumeIcon.icns"
 xcrun SetFile -a C "$stage/mount"
-test "$(xcrun GetFileInfo -a C "$stage/mount")" = 1
+test "$(xcrun GetFileInfo -aC "$stage/mount")" = 1
 hdiutil detach "$stage/mount" -quiet
 hdiutil convert "$stage/install.dmg" -format UDZO -o "dist/installers/nx-camera-info-gui-${version}-macos-${arch}.dmg"
 # Validate that the installer really installs a runnable bundle on this runner.

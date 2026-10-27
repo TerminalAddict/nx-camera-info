@@ -25,6 +25,16 @@ $process = Start-Process -FilePath $installed -ArgumentList '--version' -Wait -P
 if ($process.ExitCode -ne 0) { throw 'Installed application failed its version check.' }
 if ($env:NX_GUI_TEST_DIR) {
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public struct NXWindowRect { public int Left, Top, Right, Bottom; }
+public static class NXInstallerWindow {
+    [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out NXWindowRect rectangle);
+}
+'@
+    [NXInstallerWindow]::SetProcessDPIAware() | Out-Null
     # Inspect the icons embedded in the actual shipped and installed executables.
     foreach ($entry in @(@('installed-icon', $installed), @('setup-icon', "$installer"), @('uninstall-icon', "$env:LOCALAPPDATA\Programs\NX Camera Info\Uninstall.exe"))) {
         $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($entry[1])
@@ -45,7 +55,11 @@ if ($env:NX_GUI_TEST_DIR) {
         }
         if ($preview.MainWindowHandle -eq 0) { throw 'Installer welcome page did not appear.' }
         Start-Sleep -Seconds 2
-        $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $rectangle = New-Object NXWindowRect
+        if (-not [NXInstallerWindow]::GetWindowRect($preview.MainWindowHandle, [ref]$rectangle)) {
+            throw 'Could not locate the installer window for its screenshot.'
+        }
+        $bounds = [System.Drawing.Rectangle]::FromLTRB($rectangle.Left, $rectangle.Top, $rectangle.Right, $rectangle.Bottom)
         $bitmap = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
         $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
