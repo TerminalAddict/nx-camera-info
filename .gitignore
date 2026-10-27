@@ -1,0 +1,7 @@
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+dist/
+/nx-camera-info
+camera-export*
