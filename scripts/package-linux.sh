@@ -10,6 +10,11 @@ install -m644 packaging/nx-camera-info.desktop "$stage/usr/share/applications/"
 install -m644 packaging/icon.png "$stage/usr/share/icons/hicolor/512x512/apps/nx-camera-info.png"
 install -m644 THIRD_PARTY_NOTICES.txt GUI_THIRD_PARTY_NOTICES.txt "$stage/usr/share/doc/nx-camera-info-gui/"
 mkdir "$stage/DEBIAN"
+mkdir -p "$stage/etc/apparmor.d"
+install -m644 packaging/apparmor-profile "$stage/etc/apparmor.d/nx-camera-info-gui"
+install -m755 packaging/deb-postinst "$stage/DEBIAN/postinst"
+install -m755 packaging/deb-postrm "$stage/DEBIAN/postrm"
+echo '/etc/apparmor.d/nx-camera-info-gui' > "$stage/DEBIAN/conffiles"
 cat > "$stage/DEBIAN/control" <<EOF
 Package: nx-camera-info-gui
 Version: $version
@@ -51,6 +56,6 @@ EOF
 rpmbuild --define "_topdir $stage/rpm" --define '_build_id_links none' --define '__os_install_post %{nil}' --target "$rpmarch" -bb "$stage/rpm/SPECS/nx.spec"
 cp "$stage/rpm/RPMS/$rpmarch/"*.rpm "dist/installers/nx-camera-info-gui-${version}-linux-${arch}.rpm"
 mkdir "$stage/archive"
-install -m755 dist/nx-camera-info-gui packaging/install-dependencies.sh "$stage/archive/"
-install -m644 THIRD_PARTY_NOTICES.txt GUI_THIRD_PARTY_NOTICES.txt packaging/linux-README.txt "$stage/archive/"
+install -m755 dist/nx-camera-info-gui packaging/install-dependencies.sh packaging/install.sh "$stage/archive/"
+install -m644 THIRD_PARTY_NOTICES.txt GUI_THIRD_PARTY_NOTICES.txt packaging/linux-README.txt packaging/icon.png packaging/nx-camera-info.desktop packaging/apparmor-profile "$stage/archive/"
 tar -czf "dist/installers/nx-camera-info-gui-${version}-linux-${arch}.tar.gz" -C "$stage/archive" .

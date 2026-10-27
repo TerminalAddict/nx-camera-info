@@ -37,6 +37,17 @@ jobs:
           sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev xvfb dbus-x11 imagemagick rpm xdg-desktop-portal xdg-desktop-portal-gtk
       - name: Go tests
         run: go test ./...
+      - name: Allow the test app to start WebKit's user-namespace sandbox
+        if: runner.os == 'Linux'
+        run: |
+          cat > /tmp/nx-camera-info-ci.apparmor <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile nx-camera-info-ci "$PWD/dist/nx-camera-info-gui-test" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /tmp/nx-camera-info-ci.apparmor
       - name: Windows resources
         if: runner.os == 'Windows'
         run: go run ./cmd/windows-resource ${{ matrix.arch }}
@@ -46,7 +57,7 @@ jobs:
           extra=""
           if [ "${{ runner.os }}" = Windows ]; then extra="-H windowsgui"; fi
           go build -tags gui,production -trimpath -ldflags="-s -w $extra" -o "dist/nx-camera-info-gui$(go env GOEXE)" .
-          go build -tags gui,guismoke -o "dist/nx-camera-info-gui-test$(go env GOEXE)" .
+          go build -tags gui,guismoke,production -o "dist/nx-camera-info-gui-test$(go env GOEXE)" .
       - name: Test Linux GUI in native WebKitGTK
         if: runner.os == 'Linux'
         run: xvfb-run -a -s '-screen 0 1280x900x24' dbus-run-session -- ./dist/nx-camera-info-gui-test
@@ -72,6 +83,8 @@ jobs:
           sudo apt-get install -y ./dist/installers/*.deb
           /usr/bin/nx-camera-info-gui --version
           rpm -qp --requires dist/installers/*.rpm
+          rpm -qlp dist/installers/*.rpm
+          docker run --rm -v "$PWD/dist/installers:/packages:ro" fedora:42 sh -c 'dnf install -y /packages/*.rpm && /usr/bin/nx-camera-info-gui --version'
       - name: Package macOS installers
         if: runner.os == 'macOS'
         run: bash scripts/package-macos.sh

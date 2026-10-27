@@ -1,0 +1,8 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# Permit WebKit's own bubblewrap sandbox to create its user namespace.
+# This exception is scoped to the installed application, not the whole system.
+profile nx-camera-info-gui /{usr/bin,opt/nx-camera-info}/nx-camera-info-gui flags=(unconfined) {
+  userns,
+}
