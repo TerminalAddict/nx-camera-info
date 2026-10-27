@@ -20,7 +20,7 @@ Choose the `macos-amd64` installer for Intel Macs or `macos-arm64` for Apple Sil
 
 These bundles have a local ad-hoc signature for executable integrity, but no Apple Developer ID signature or notarization. If macOS blocks opening the downloaded app or installer, use **System Settings → Privacy & Security → Open Anyway**, after verifying its source and checksum. A managed Mac may require administrator approval. Do not disable Gatekeeper globally.
 
-The bundles declare macOS 11 or later; native release validation uses macOS 15 on Intel and Apple Silicon. Earlier macOS versions are not covered by that test matrix.
+The bundles require macOS 12 or later, matching the [Go 1.26 runtime requirement](https://go.dev/wiki/MinimumRequirements#macos-n%C3%A9e-os-x-aka-darwin). Native release validation uses macOS 15 on Intel and Apple Silicon. Earlier macOS versions are not covered by that test matrix.
 
 ### Linux
 
@@ -82,6 +82,16 @@ These are captures of the running GUI with a generated **synthetic** database. C
 
 ![Export dialog showing filtered scope and masked-password setting](screenshots/gui-linux-export.png)
 
+### Windows — WebView2
+
+![Windows desktop GUI with native menu and window controls](screenshots/gui-windows-inventory.png)
+
+### macOS — system WebKit
+
+![macOS desktop GUI with native application menu and window controls](screenshots/gui-macos-inventory.png)
+
+The Windows and macOS captures come from native CI desktops. The macOS menu identifies the test executable; installed bundles display **NX Camera Info**.
+
 ## Keyboard and desktop integration
 
 | Action | Windows/Linux | macOS |
@@ -109,7 +119,7 @@ make gui
 
 On macOS install Xcode command-line tools first; `make gui` creates the executable, and `bash scripts/package-macos.sh` creates the app bundle, PKG and DMG. On Windows, generate the resources with `go run ./cmd/windows-resource amd64` (or `arm64`), then build with `go build -tags gui,production -ldflags="-s -w -H windowsgui" -o dist/nx-camera-info-gui.exe .`.
 
-The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. Only native file-selection results are substituted in the automated test; the real Go services, Wails bridge, rendered controls, and SQLite reader are exercised. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. The test harness is excluded from release binaries.
+The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. Only native file-selection results are substituted in the automated test; the real Go services, Wails bridge, rendered controls, and SQLite reader are exercised. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
 
 For a local native Linux UI test and fresh screenshots:
 
@@ -124,5 +134,7 @@ This needs Xvfb and ImageMagick. The directory receives screenshots, a JSON resu
 ```sh
 go run ./cmd/demo-database /tmp/demo-camera-database.sqlite
 ```
+
+The release also includes `demo-camera-database.sqlite` for trying the GUI without a server database. It contains eight fictional cameras and one virtual camera, with demonstration credentials only.
 
 Packaging scripts live in `scripts/package-*.sh` and `scripts/package-windows.ps1`. Windows builds download and verify Microsoft's offline runtime. Linux builds use `dpkg-deb` and `rpmbuild`; macOS builds use the system `pkgbuild` and `hdiutil`. Keep both third-party notices files with redistributed GUI binaries.

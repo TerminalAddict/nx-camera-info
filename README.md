@@ -140,9 +140,9 @@ Format and schema references:
 - [Network Optix's database documentation](https://support.networkoptix.com/hc/en-us/articles/115013837268-Media-Server-Database-Files).
 - [Nx Powertoys camera password feature](https://nxpt.io/).
 
-## Build and test
+## CLI build and test
 
-Requires Go 1.26 or later to build. The SQLite dependency is pinned in `go.mod` and `go.sum`; the first build may download dependencies. The compiled program uses Go's AES implementation and a pure-Go SQLite driver, so no separate OpenSSL or SQLite installation is needed. All targets disable CGO; the Linux executables are statically linked, while Windows and macOS use standard system libraries.
+Requires Go 1.26 or later to build. The SQLite dependency is pinned in `go.mod` and `go.sum`; the first build may download dependencies. The compiled CLI uses Go's AES implementation and a pure-Go SQLite driver, so no separate OpenSSL or SQLite installation is needed. All CLI targets disable CGO; the Linux CLI executables are statically linked, while Windows and macOS use standard system libraries. For the desktop application's native dependencies and build instructions, see the [GUI guide](docs/GUI.md#build-and-validate).
 
 The Makefile targets run in a Unix-style shell with Make (the `release` target also needs `sha256sum`):
 
