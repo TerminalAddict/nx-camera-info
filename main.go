@@ -18,7 +18,7 @@ import (
 	"unicode"
 )
 
-const version = "0.3.1"
+const version = "0.4.0"
 
 func defaultDatabasePath() string {
 	if runtime.GOOS == "linux" {
@@ -32,18 +32,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("nx-camera-info", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&opts.DB, "db", defaultDatabasePath(), "path to an Nx Witness ecs.sqlite database (read only)")
-	flags.StringVar(&opts.Format, "format", "table", "output format: table, json, csv; JSON and CSV include additional camera details")
+	flags.StringVar(&opts.Format, "format", "table", "output format: table, json, csv")
+	flags.StringVar(&opts.Section, "section", "all", "report section: all, cameras, users, system, servers, storage, licenses")
 	flags.StringVar(&opts.Output, "output", "", "write to a new file; never overwrite (0600 on Unix, inherited directory permissions on Windows; default: stdout)")
-	flags.StringVar(&opts.Filter, "filter", "", "case-insensitive match on name, host/IP, UUID, vendor, model, MAC, group, logical ID or server")
+	flags.StringVar(&opts.Filter, "filter", "", "filter cameras by name, host/IP, UUID, vendor, model, MAC, group, logical ID or server; other sections remain complete")
 	flags.BoolVar(&opts.ShowPasswords, "show-passwords", false, "reveal saved passwords and complete URLs")
 	flags.BoolVar(&opts.IncludeVirtual, "include-virtual", false, "include virtual desktop camera records")
-	flags.BoolVar(&opts.SummaryOnly, "summary", false, "show counts and server versions only; supports table or json, not csv")
+	flags.BoolVar(&opts.SummaryOnly, "summary", false, "show inventory counts and server versions only; supports table or json, not csv")
 	showVersion := flags.Bool("version", false, "print program version")
 	showHelp := flags.Bool("help", false, "show all options and usage examples; no database required")
 	flags.BoolVar(showHelp, "h", false, "alias for --help")
 	flags.Usage = func() {
 		out := flags.Output()
-		fmt.Fprintln(out, "nx-camera-info: offline camera inventory and credential recovery for Nx Witness")
+		fmt.Fprintln(out, "nx-camera-info: offline system inventory and camera credential recovery for Nx Witness")
 		fmt.Fprintln(out, "Usage: nx-camera-info [options]")
 		fmt.Fprintln(out, "\nWith no options, reads the default database and displays a table with passwords masked.")
 		fmt.Fprintln(out, "Virtual desktop cameras are omitted unless --include-virtual is supplied.")
@@ -57,13 +58,17 @@ Examples:
   nx-camera-info --show-passwords --format json --output camera-export.json
   nx-camera-info --filter Hikvision --show-passwords
   nx-camera-info --include-virtual --summary --format json
+  nx-camera-info --section users
+  nx-camera-info --section licenses --format json
+  nx-camera-info --section cameras --format csv --output cameras.csv
   nx-camera-info --db ./ecs.sqlite --show-passwords
   nx-camera-info --help
 
-The table shows camera names, hosts, usernames, passwords, vendors, models,
-assigned servers and credential recovery status. JSON and CSV also include
-UUIDs, ports, MAC addresses, serial numbers, firmware, device/stream URLs,
-server details, stored status codes, schedule/audio flags and credential sources.
+Reports include cameras, users, system/server details, storage and full licence keys.
+All-section CSV uses record_type, record_id, field, value rows. Select
+--section cameras for the original camera spreadsheet, or another section for
+a spreadsheet with one row per record. JSON includes full details and summary.
+Remaining licence activations/deactivations are unavailable from the database.
 Without --show-passwords, passwords and URL userinfo/query/fragment are masked.
 
 Reads the database without changing its contents. Does not contact cameras or
@@ -93,6 +98,10 @@ Exit codes: 0 = success; 1 = input/output error; 2 = partial credential recovery
 	}
 	if opts.Format != "table" && opts.Format != "json" && opts.Format != "csv" {
 		fmt.Fprintln(stderr, "error: --format must be table, json or csv")
+		return 1
+	}
+	if !validSection(opts.Section) {
+		fmt.Fprintln(stderr, "error: --section must be all, cameras, users, system, servers, storage or licenses")
 		return 1
 	}
 	if opts.SummaryOnly && opts.Format == "csv" {
@@ -132,7 +141,7 @@ Exit codes: 0 = success; 1 = input/output error; 2 = partial credential recovery
 			report.Summary.Matched, report.Summary.Recovered, report.Summary.Empty,
 			report.Summary.Missing, report.Summary.DecodeErrors, report.Summary.VirtualOmitted)
 	}
-	if report.Summary.DecodeErrors != 0 {
+	if report.Summary.DecodeErrors != 0 && (opts.Section == "all" || opts.Section == "cameras" || opts.Section == "") {
 		return 2
 	}
 	return 0
@@ -159,16 +168,27 @@ func render(w io.Writer, report Report, opts Options) error {
 		if opts.SummaryOnly {
 			return encoder.Encode(report.Summary)
 		}
-		return encoder.Encode(report)
+		return encoder.Encode(sectionJSON(report, opts.Section))
 	}
 	if opts.SummaryOnly {
 		s := report.Summary
-		_, err := fmt.Fprintf(w, "Camera records: %d\nVirtual records omitted: %d\nMatched cameras: %d\nCredentials recovered: %d\nEmpty credentials: %d\nCredentials not stored: %d\nDecode errors: %d\nNx server versions: %s\n",
-			s.TotalRecords, s.VirtualOmitted, s.Matched, s.Recovered, s.Empty, s.Missing, s.DecodeErrors, strings.Join(s.ServerVersions, ", "))
+		_, err := fmt.Fprintf(w, "Camera records: %d\nVirtual records omitted: %d\nMatched cameras: %d\nCredentials recovered: %d\nEmpty credentials: %d\nCredentials not stored: %d\nDecode errors: %d\nNx server versions: %s\nUsers: %d\nServers: %d\nStorage locations: %d\nLicences: %d\n",
+			s.TotalRecords, s.VirtualOmitted, s.Matched, s.Recovered, s.Empty, s.Missing, s.DecodeErrors, strings.Join(s.ServerVersions, ", "), s.Users, s.Servers, s.StorageLocations, s.Licenses)
 		return err
 	}
 	if opts.Format == "csv" {
-		return renderCSV(w, report.Cameras)
+		return renderInventoryCSV(w, report, opts.Section)
+	}
+	if opts.Section != "cameras" {
+		if err := renderInventoryTable(w, report, opts.Section); err != nil {
+			return err
+		}
+		if opts.Section != "" && opts.Section != "all" {
+			return nil
+		}
+		if _, err := fmt.Fprintln(w, "\nCAMERAS"); err != nil {
+			return err
+		}
 	}
 	table := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(table, "NAME\tHOST\tUSERNAME\tPASSWORD\tVENDOR\tMODEL\tSERVER\tCREDENTIALS"); err != nil {

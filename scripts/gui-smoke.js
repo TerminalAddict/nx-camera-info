@@ -51,6 +51,22 @@
     assert($('rows').children.length === 8,'wrong camera count');
     assert(!document.body.textContent.includes('demo-password'),'password leaked in masked view');
     await capture('inventory');
+    await click('nav-users');
+    assert($('page-title').textContent === 'Users' && $('table-wrap').hidden,'users navigation failed');
+    assert($('report-panel').textContent.includes('Power User') && $('report-panel').textContent.includes('operator@example.invalid'),'user roles or email missing');
+    await capture('users');
+    await click('nav-system');
+    assert($('report-panel').textContent.includes('Ubuntu 24.04 LTS') && $('report-panel').textContent.includes('192.168.50.10'),'system information missing');
+    await capture('servers');
+    await click('nav-storage');
+    assert($('report-panel').textContent.includes('/mnt/backup/HD Witness Media'),'storage missing');
+    await capture('storage');
+    await click('nav-licenses');
+    assert($('report-panel').textContent.includes('DEMO-ONLY-0000-0001') && $('report-panel').textContent.includes('Unavailable from database'),'licence keys or unknown activation counts missing');
+    document.querySelector('#report-panel .row-details').click();
+    assert($('details').textContent.includes('DEMO-NOT-A-VALID-LICENCE') && $('details').textContent.includes('DEMO-HARDWARE-ID'),'licence details omitted stored fields');
+    $('details-dialog').close(); await capture('licenses');
+    await click('nav-cameras');
     await click('reveal'); assert($('rows').textContent.includes('demo-password'),'reveal failed');
     document.querySelector('.row-details').click();
     assert($('details-dialog').open && $('details').textContent.includes('demo-password'),'camera details failed');
@@ -62,14 +78,17 @@
     await capture('export');
     await click('save-export'); const csv = await harness('ReadExport','csv');
     assert(csv.includes('Hikvision')&&!csv.includes('demo-password')&&!csv.includes('Reception'),'masked filtered CSV incorrect');
+    assert(csv.startsWith('record_type,record_id,field,value') && csv.includes('DEMO-ONLY-0000-0001') && csv.includes('Power User'),'full CSV omitted new sections');
     await click('reveal'); await click('export'); document.querySelector('input[value=json]').checked=true;
     await click('save-export'); const exported = JSON.parse(await harness('ReadExport','json'));
     assert(exported.cameras.length===2 && exported.cameras[0].password==='demo-password','revealed JSON incorrect');
+    assert(exported.users.length===3 && exported.servers.length===1 && exported.storage.length===3 && exported.licenses.length===2,'JSON omitted new sections');
+    assert(exported.licenses[0].activations_remaining===null,'unknown activations must remain null');
     await click('export'); await click('save-export'); assert(!$('error').hidden&&$('error').textContent.includes('already exists'),'overwrite not refused');
     await click('clear-filter'); await click('virtual'); assert($('rows').children.length===9,'virtual camera toggle failed');
     await click('refresh'); assert($('rows').children.length===9,'refresh lost options');
     await harness('Select','invalid'); await click('open'); assert(!$('error').hidden,'invalid database not reported'); assert($('rows').children.length===9,'invalid open discarded snapshot');
-    await click('close'); assert($('rows').children.length===0 && $('export').disabled,'close did not clear data');
+    await click('close'); assert($('rows').children.length===0 && $('export').disabled && $('report-panel').children.length===0,'close did not clear data');
     await harness('Done','');
-  } catch(error) { await harness('Done',error.stack || String(error)); }
+  } catch(error) { await harness('Done',String(error) + '\n' + (error.stack || '')); }
 })().catch(error => console.error(error));

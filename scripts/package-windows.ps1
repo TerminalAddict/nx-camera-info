@@ -18,7 +18,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not build the native installer maintenan
 & $nsis "/DARCH=$Arch" packaging/windows.nsi
 if ($LASTEXITCODE -ne 0) { throw 'NSIS packaging failed.' }
 # Install into the disposable CI runner and verify the installed executable.
-$installer = Resolve-Path "dist/installers/nx-camera-info-gui-0.3.1-windows-$Arch-setup.exe"
+$installer = Resolve-Path "dist/installers/nx-camera-info-gui-0.4.0-windows-$Arch-setup.exe"
 $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
 if ($process.ExitCode -ne 0) { throw "Installer exited $($process.ExitCode)" }
 $installed = "$env:LOCALAPPDATA\Programs\NX Camera Info\nx-camera-info-gui.exe"

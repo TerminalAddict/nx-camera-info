@@ -63,11 +63,21 @@ type Summary struct {
 	DecodeErrors      int      `json:"credential_decode_errors"`
 	ServerVersions    []string `json:"server_versions"`
 	PasswordsRevealed bool     `json:"passwords_revealed"`
+	Users             int      `json:"users"`
+	Servers           int      `json:"servers"`
+	StorageLocations  int      `json:"storage_locations"`
+	Licenses          int      `json:"licenses"`
 }
 
 type Report struct {
-	Summary Summary  `json:"summary"`
-	Cameras []Camera `json:"cameras"`
+	Summary  Summary       `json:"summary"`
+	Cameras  []Camera      `json:"cameras"`
+	System   SystemInfo    `json:"system"`
+	Users    []UserInfo    `json:"users"`
+	Servers  []ServerInfo  `json:"servers"`
+	Storage  []StorageInfo `json:"storage"`
+	Licenses []LicenseInfo `json:"licenses"`
+	Warnings []string      `json:"warnings,omitempty"`
 }
 
 type Options struct {
@@ -78,6 +88,7 @@ type Options struct {
 	ShowPasswords  bool
 	IncludeVirtual bool
 	SummaryOnly    bool
+	Section        string
 }
 
 func openDatabase(path string) (*sql.DB, error) {
@@ -231,6 +242,23 @@ ORDER BY lower(coalesce(nullif(a.camera_name, ''), r.name, '')), hex(r.guid)`)
 	report.Summary.ServerVersions = make([]string, 0, len(versions))
 	for version := range versions {
 		report.Summary.ServerVersions = append(report.Summary.ServerVersions, version)
+	}
+	sort.Strings(report.Summary.ServerVersions)
+	if err := rows.Close(); err != nil {
+		return report, err
+	}
+	if err := readInventory(ctx, tx, &report); err != nil {
+		return report, fmt.Errorf("read system inventory: %w", err)
+	}
+	// Include servers without cameras in the version summary too.
+	for _, server := range report.Servers {
+		if server.Version != "" {
+			versions[server.Version] = true
+		}
+	}
+	report.Summary.ServerVersions = report.Summary.ServerVersions[:0]
+	for v := range versions {
+		report.Summary.ServerVersions = append(report.Summary.ServerVersions, v)
 	}
 	sort.Strings(report.Summary.ServerVersions)
 	return report, tx.Commit()

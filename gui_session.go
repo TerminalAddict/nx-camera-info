@@ -22,6 +22,7 @@ type ViewOptions struct {
 	Filter         string `json:"filter"`
 	Reveal         bool   `json:"reveal"`
 	IncludeVirtual bool   `json:"includeVirtual"`
+	Section        string `json:"section"`
 }
 
 type CameraView struct {
@@ -67,11 +68,15 @@ func (s *cameraSession) view(options ViewOptions) (CameraView, error) {
 }
 
 func (s *cameraSession) filtered(options ViewOptions) CameraView {
-	r := Report{Cameras: []Camera{}, Summary: Summary{
+	r := s.snapshot
+	r.Cameras = []Camera{}
+	r.Summary = Summary{
 		TotalRecords:      s.snapshot.Summary.TotalRecords,
 		ServerVersions:    s.snapshot.Summary.ServerVersions,
 		PasswordsRevealed: options.Reveal,
-	}}
+		Users:             s.snapshot.Summary.Users, Servers: s.snapshot.Summary.Servers,
+		StorageLocations: s.snapshot.Summary.StorageLocations, Licenses: s.snapshot.Summary.Licenses,
+	}
 	for _, original := range s.snapshot.Cameras {
 		if original.Virtual && !options.IncludeVirtual {
 			r.Summary.VirtualOmitted++
@@ -114,6 +119,9 @@ func (s *cameraSession) close() {
 }
 
 func (s *cameraSession) export(path, format string, options ViewOptions) (int, error) {
+	if !validSection(options.Section) {
+		return 0, errors.New("unknown report section")
+	}
 	if format != "csv" && format != "json" {
 		return 0, errors.New("choose CSV or JSON")
 	}
@@ -122,7 +130,7 @@ func (s *cameraSession) export(path, format string, options ViewOptions) (int, e
 		return 0, err
 	}
 	var data bytes.Buffer
-	if err = render(&data, view.Report, Options{Format: format}); err != nil {
+	if err = render(&data, view.Report, Options{Format: format, Section: options.Section}); err != nil {
 		return 0, err
 	}
 	if err = writeNewFile(path, data.Bytes()); err != nil {

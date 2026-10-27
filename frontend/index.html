@@ -13,12 +13,18 @@
   <aside class="sidebar">
     <div class="brand"><img src="icon.svg" alt="" width="36" height="36"><div>NX Camera Info<small>DATABASE EXPLORER</small></div></div>
     <div class="nav-label">WORKSPACE</div>
-    <div class="nav-item"><span aria-hidden="true">▦</span> Camera inventory</div>
+    <nav aria-label="Report sections" class="report-nav">
+      <button id="nav-cameras" class="nav-item" data-section="cameras" aria-current="page">Camera inventory</button>
+      <button id="nav-users" class="nav-item" data-section="users">Users</button>
+      <button id="nav-system" class="nav-item" data-section="system">System &amp; servers</button>
+      <button id="nav-storage" class="nav-item" data-section="storage">Storage</button>
+      <button id="nav-licenses" class="nav-item" data-section="licenses">Licences</button>
+    </nav>
     <div class="source"><div class="nav-label">OPEN DATABASE</div><strong id="filename">No database selected</strong><p id="loaded-at">Open a database to begin.</p><button id="close" class="quiet" disabled>Close database</button></div>
     <div class="sidebar-bottom"><span class="dot"></span> Local &amp; read only<p>Your database stays on this computer.</p><button id="about-open" class="sidebar-about">About &amp; updates <span aria-hidden="true">↗</span></button><small id="version"></small></div>
   </aside>
   <main>
-    <header><div><div class="eyebrow">NX WITNESS</div><h1>Camera inventory</h1><p>Explore devices and recover saved camera credentials.</p></div><button id="open" class="primary"><span aria-hidden="true">＋</span> Open database…</button></header>
+    <header><div><div class="eyebrow">NX WITNESS</div><h1 id="page-title">Camera inventory</h1><p id="page-description">Explore devices and recover saved camera credentials.</p></div><button id="open" class="primary"><span aria-hidden="true">＋</span> Open database…</button></header>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="error" role="alert" hidden></div>
     <section class="stats" aria-label="Database summary">
@@ -32,11 +38,12 @@
       <div class="view-options"><label><input id="virtual" type="checkbox" disabled> Include virtual cameras</label><span id="visibility" class="badge">Passwords hidden</span><button id="refresh" class="quiet" disabled>↻ Refresh</button></div>
       <div id="empty" class="empty"><img src="icon.svg" width="64" height="64" alt=""><h2>Your camera inventory, in one place.</h2><p>Choose an Nx Witness <code>ecs.sqlite</code> database or a consistent backup.<br>Browse cameras, reveal saved passwords, and export what you need.</p><button id="open-empty" class="primary">Browse for database…</button><small>The original database is opened read only.</small></div>
       <div id="table-wrap" class="table-wrap" hidden><table><thead><tr><th><button data-sort="name">Camera ↕</button></th><th><button data-sort="host">Address ↕</button></th><th>Username</th><th>Password</th><th><button data-sort="vendor">Vendor / model ↕</button></th><th><button data-sort="server_name">Server ↕</button></th><th>Credentials</th><th><span class="sr-only">Details</span></th></tr></thead><tbody id="rows"></tbody></table><p id="no-results" hidden>No cameras match this filter. Try another name, address, or vendor.</p></div>
+      <div id="report-panel" class="report-panel" hidden></div>
       <footer><span id="table-status">Ready to open a database</span><span id="snapshot-status">No network connections to cameras</span></footer>
     </section>
-    <p class="footnote">Saved credentials describe this database snapshot. Camera connectivity and logins are not checked.</p>
+    <p class="footnote" id="report-footnote">Saved values describe this database snapshot. Connectivity, recording and licence activation status are not checked.</p>
   </main>
-  <dialog id="export-dialog" aria-labelledby="export-title"><form method="dialog"><h2 id="export-title">Export camera inventory</h2><p id="export-scope"></p><fieldset><legend>File format</legend><label class="format-option"><input type="radio" name="format" value="csv" checked><span><strong>CSV spreadsheet</strong><small>Camera details in rows and columns</small></span></label><label class="format-option"><input type="radio" name="format" value="json"><span><strong>JSON document</strong><small>Full details and summary for scripts</small></span></label></fieldset><p id="export-privacy" class="export-privacy"></p><p class="subtle">Existing files are preserved. Choose a new filename.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button id="save-export" type="button" class="primary">Choose destination…</button></div></form></dialog>
+  <dialog id="export-dialog" aria-labelledby="export-title"><form method="dialog"><h2 id="export-title">Export database report</h2><label for="export-section">Include</label><select id="export-section"><option value="all">Full report — all sections</option value="cameras">Cameras in the current view</option><option value="users">Users</option><option value="system">System</option><option value="servers">Servers</option><option value="storage">Storage</option><option value="licenses">Licences</option></select><p id="export-scope"></p><fieldset><legend>File format</legend><label class="format-option"><input type="radio" name="format" value="csv" checked><span><strong>CSV spreadsheet</strong><small>Full report: record / field / value. Single section: one row per record.</small></span></label><label class="format-option"><input type="radio" name="format" value="json"><span><strong>JSON document</strong><small>Full details and summary for scripts</small></span></label></fieldset><p id="export-privacy" class="export-privacy"></p><p class="subtle">Existing files are preserved. Choose a new filename.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button id="save-export" type="button" class="primary">Choose destination…</button></div></form></dialog>
   <dialog id="details-dialog" aria-labelledby="details-title"><h2 id="details-title">Camera details</h2><p id="details-subtitle"></p><dl id="details"></dl><form method="dialog" class="dialog-actions"><button autofocus>Close</button></form></dialog>
   <button id="updates-open" hidden aria-hidden="true" tabindex="-1">Check for updates</button>
   <dialog id="about-dialog" aria-labelledby="about-title">

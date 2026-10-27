@@ -6,7 +6,7 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.3.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.4.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -37,13 +37,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.3.1-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.4.0-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.3.1-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.4.0-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -52,7 +52,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.3.1-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.4.0-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -67,8 +67,11 @@ The script supports APT, DNF, and Pacman. It installs the application under `/op
 3. Click **Reveal passwords** to display recovered credentials and complete URLs; **Hide passwords** masks them again. Opening another database always starts masked. No credentials are written to application preferences or a browser store.
 4. Click a row's **›** button or double-click the row to inspect device metadata, URLs, credential source, and decode errors.
 5. Select **Include virtual cameras** to include desktop camera records. The summary counts reflect the current view.
-6. Click **Export as…**, choose CSV or JSON, and select a destination using the native Save dialog. The export uses the applied filter, virtual-camera setting, and password visibility shown in the export dialog. Merely typing a new filter does not change an export until that filter has been applied. Existing files are never overwritten.
-7. **Refresh** rereads the database. Otherwise, filtering, reveal/hide, and exports all operate on the same loaded snapshot. **Close database** clears the snapshot from the session.
+6. Use the sidebar to switch between **Camera inventory**, **Users**, **System & servers**, **Storage**, and **Licences**. Users show account, type, display name, inherited role, email and enabled status. Server cards show addresses, versions, OS and hardware. Storage and licence **Details** buttons expose all stored report fields, including full licence keys and original licence blocks; system/server cards have **All details** buttons.
+7. Click **Export as…**, choose the full report or one section, then CSV or JSON, and select a destination using the native Save dialog. Full-report CSV uses record/field/value rows; a single section uses one row per record. Camera-only CSV preserves the original spreadsheet layout. The camera section uses the applied filter, virtual-camera setting, and password visibility shown in the export dialog; other sections remain complete. Merely typing a new filter does not change an export until that filter has been applied. Existing files are never overwritten.
+8. **Refresh** rereads every section. Otherwise, navigation, filtering, reveal/hide, and exports all operate on the same loaded snapshot. **Close database** clears the snapshot from the session.
+
+Remaining licence activations and deactivations are shown as **Unavailable from database**. The stored channel count is licensed capacity, not an activation counter. No licence history or validity is checked online, and licence keys are not transmitted. Licence exports include full keys even when camera passwords are hidden. See [report fields and export formats](../README.md#output) for the exact output contract and licensing limitations.
 
 Passwords are masked by default, including URL user information, query strings, and fragments. Revealed exports contain saved credentials: keep them in a private location. Export files use `0600` on Linux/macOS and inherit directory permissions on Windows. CSV values are preserved exactly; use a text-aware spreadsheet import for untrusted device fields.
 
@@ -105,6 +108,16 @@ These are captures of the running GUI with a generated **synthetic** database. C
 ### Export options
 
 ![Export dialog showing filtered scope and masked-password setting](screenshots/gui-linux-export.png)
+
+### Users, system, storage and licences
+
+![User accounts and inherited roles](screenshots/gui-users.png)
+
+![System and server details](screenshots/gui-servers.png)
+
+![Storage locations and recording configuration](screenshots/gui-storage.png)
+
+![Licence keys and explicitly unavailable activation counters](screenshots/gui-licenses.png)
 
 ### Windows — WebView2
 
@@ -163,6 +176,6 @@ This needs Xvfb and ImageMagick. The directory receives screenshots, a JSON resu
 go run ./cmd/demo-database /tmp/demo-camera-database.sqlite
 ```
 
-The release also includes `demo-camera-database.sqlite` for trying the GUI without a server database. It contains eight fictional cameras and one virtual camera, with demonstration credentials only.
+The release also includes `demo-camera-database.sqlite` for trying the GUI without a server database. It contains eight fictional cameras, one virtual camera, three users, one server, three storage locations and two clearly marked invalid demonstration licences. All credentials and inventory records are synthetic.
 
 Packaging scripts live in `scripts/package-*.sh` and `scripts/package-windows.ps1`. Windows builds download and verify Microsoft's offline runtime. Linux builds use `dpkg-deb` and `rpmbuild`; macOS builds use the system `pkgbuild` and `hdiutil`. Keep both third-party notices files with redistributed GUI binaries.

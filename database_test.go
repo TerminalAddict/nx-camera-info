@@ -167,7 +167,7 @@ func TestCLIFormatsAndFailures(t *testing.T) {
 	path, db := fixture(t)
 	for _, format := range []string{"table", "json", "csv"} {
 		var out, stderr bytes.Buffer
-		if code := run([]string{"--db", path, "--format", format}, &out, &stderr); code != 0 {
+		if code := run([]string{"--db", path, "--section", "cameras", "--format", format}, &out, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d: %s", format, code, stderr.String())
 		}
 		if strings.Contains(out.String(), "demo-password") {

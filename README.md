@@ -6,11 +6,11 @@ A desktop GUI and standalone command-line tool for listing camera information an
 
 ## Desktop GUI
 
-The Wails v3 desktop application provides native Open/Save dialogs and menus, system light/dark appearance, and platform-adapted controls. Open a database, filter the camera list, reveal or hide passwords, inspect device details, and export the current view as CSV or JSON.
+The Wails v3 desktop application provides native Open/Save dialogs and menus, system light/dark appearance, and platform-adapted controls. Open a database and browse **Cameras**, **Users**, **System & servers**, **Storage**, and **Licences**. Filter cameras, reveal or hide camera passwords, inspect stored details, and export a full report or an individual section as CSV or JSON. The same reports are available on every supported GUI and CLI platform.
 
 ![NX Camera Info GUI on Linux, showing synthetic camera inventory](docs/screenshots/gui-linux-inventory.png)
 
-Get the installers from [release v0.3.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.1). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
+Get the installers from [release v0.4.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.0). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
 
 The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout the app, desktop launchers, and installers.
 
@@ -18,12 +18,12 @@ The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout
 
 | System | GUI installer / package |
 | --- | --- |
-| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.3.1-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
-| Linux ARM64 | `nx-camera-info-gui-0.3.1-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
-| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.3.1-windows-amd64-setup.exe` |
-| Windows ARM64 | `nx-camera-info-gui-0.3.1-windows-arm64-setup.exe` |
-| macOS Intel | `nx-camera-info-gui-0.3.1-macos-amd64.pkg` or `.dmg` |
-| macOS Apple Silicon | `nx-camera-info-gui-0.3.1-macos-arm64.pkg` or `.dmg` |
+| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.4.0-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
+| Linux ARM64 | `nx-camera-info-gui-0.4.0-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
+| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.4.0-windows-amd64-setup.exe` |
+| Windows ARM64 | `nx-camera-info-gui-0.4.0-windows-arm64-setup.exe` |
+| macOS Intel | `nx-camera-info-gui-0.4.0-macos-amd64.pkg` or `.dmg` |
+| macOS Apple Silicon | `nx-camera-info-gui-0.4.0-macos-arm64.pkg` or `.dmg` |
 
 Windows installers include Microsoft's full offline WebView2 installer. Linux DEB/RPM packages declare GTK4/WebKitGTK dependencies for the package manager to install; the archive includes a dependency-install script. macOS uses the built-in WebKit framework. These builds are not publisher-signed or Apple-notarized; see the guide for first-launch instructions.
 
@@ -101,7 +101,26 @@ That path is the standard Network Optix Linux location; OEM installations may di
 
 ## Output
 
-The table shows name, host, username, password, vendor, model, assigned server, and credential recovery status. JSON and CSV also contain:
+The default report includes all sections. Use `--section cameras|users|system|servers|storage|licenses` to select one, or `--section all` for the full report. Camera filters affect only the camera section; users, servers, storage and licences remain complete.
+
+```sh
+nx-camera-info --db ecs.sqlite --section users
+nx-camera-info --db ecs.sqlite --section servers
+nx-camera-info --db ecs.sqlite --section licenses --format json
+nx-camera-info --db ecs.sqlite --format json --output full-report.json
+nx-camera-info --db ecs.sqlite --format csv --output full-report.csv
+nx-camera-info --db ecs.sqlite --section cameras --format csv --output cameras.csv
+nx-camera-info --db ecs.sqlite --section users --format csv --output users.csv
+```
+
+- **Users:** account, local/cloud/LDAP type, display name, role, email, enabled status, group IDs and inherited groups. Built-in Nx 6.1 roles are resolved even when they have no row in the custom-group table. Raw direct permissions are also available; a zero value does not mean no access because permissions can be inherited. User password hashes are not exported.
+- **System and servers:** system name and IDs, cloud account, latest stored transaction, server names/IDs, main and discovered addresses (including ignored discovery entries), Nx version and full build, OS, architecture, CPU, RAM, time zone, disk/interface descriptions and selected settings. Discovery addresses can be historical. Servers without cameras are included.
+- **Storage:** every storage row, its server, path, type, recording/backup flags, stored space and space-limit values in bytes, archive mode, status flags and selected storage properties. These are saved values, not live free space, recording health or a guarantee of archive retention.
+- **Licences:** full keys, serials, channel counts, class, version, brand, hardware ID, expiry field, company/support fields, all other licence-block fields and the original block. Blank expiry is reported as not set, not a verified validity result. Keys are included without needing `--show-passwords`.
+
+**Remaining licence activations/deactivations are not stored in this database.** Both fields are JSON `null`, empty CSV values and explicitly unavailable in the GUI/table, with an explanation in `activation_information`. Licensed channels (`COUNT`) must not be used as remaining activations. The app does not send licence keys to a remote service. Nx provides activation/deactivation history through its [licensing portal](https://www.networkoptix.com/my/license-portal), which requires appropriate access.
+
+The camera table shows name, host, username, password, vendor, model, assigned server, and credential recovery status. JSON and CSV also contain:
 
 - Camera UUID, parsed IP address, URL port, original device URL, MAC, serial number, firmware, physical ID, logical ID and group.
 - Server UUID, display name, URL and Nx version.
@@ -113,7 +132,9 @@ The table shows name, host, username, password, vendor, model, assigned server, 
 
 Passwords are masked by default. The masked view also removes URL userinfo, query strings and fragments; unusual unparseable URLs are suppressed. URL paths remain visible. `--show-passwords` reveals passwords and complete URLs. A blank password with `has_password: false` is distinct from a missing credential record or a decode error. CSV preserves exact field values; use a text-aware import if opening it in spreadsheet software.
 
-`--output` creates a new file and refuses to overwrite an existing file or symlink. On Linux and macOS it uses Unix permissions `0600`; on Windows it inherits the destination directory's permissions. Shell redirection uses your shell's permissions instead. JSON has `summary` and `cameras` members; summary-only JSON contains just the summary object. Command diagnostics go to stderr, leaving stdout suitable for piping.
+`--output` creates a new file and refuses to overwrite an existing file or symlink. On Linux and macOS it uses Unix permissions `0600`; on Windows it inherits the destination directory's permissions. Shell redirection uses your shell's permissions instead. Full JSON contains `summary`, `system`, `servers`, `users`, `storage`, `licenses`, `cameras`, and optional `warnings`. Section JSON contains the chosen section, summary and warnings; summary-only JSON contains just inventory counts and server versions.
+
+Full-report CSV uses four columns: `record_type,record_id,field,value`, allowing every section and nested metadata to be included in one valid CSV file. Single-section CSV has one row per record; nested objects/arrays are JSON in quoted cells. **Compatibility:** use `--section cameras --format csv` for the original 34-column camera CSV. This is required for scripts that relied on the pre-0.4 default camera-only CSV. Command diagnostics go to stderr, leaving stdout suitable for piping.
 
 Exit codes: `0` successful read (including no matches or missing credentials); `1` argument, database or output error; `2` results emitted but at least one selected camera's credentials could not be decoded.
 
@@ -137,7 +158,7 @@ Credential fields in the tested database are hex-encoded AES-128-CBC with the fi
 
 An explicit `credentials` property takes precedence even if empty or undecodable. Only an absent property falls back to `defaultCredentials`, matching Nx's published camera logic. Conflicting duplicate properties fail with an error. These are camera credentials; this program does not recover Nx user account passwords from account hashes or dump server authentication keys.
 
-Tested against the supplied Nx 6.1.2 schema. Other versions may use compatible tables, but are not claimed as tested. Unsupported schema or credential formats produce explicit errors. Stored status codes and schedule flags describe the snapshot, not live reachability or proof of current recording.
+Tested against the supplied Nx 6.1.2 schema. Other versions may use compatible tables, but are not claimed as tested. Missing optional inventory tables generate compatibility notes while retaining camera access; absent optional fields remain unknown. Unsupported camera schema or credential formats produce explicit errors. Stored status codes and schedule flags describe the snapshot, not live reachability or proof of current recording.
 
 Format and schema references:
 

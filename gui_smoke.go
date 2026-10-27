@@ -54,7 +54,7 @@ func (h *GUIHarness) ReadExport(format string) (string, error) {
 	return string(b), e
 }
 func (h *GUIHarness) Capture(name string) error {
-	if name != "inventory" && name != "export" && name != "filtered" && name != "about" && name != "update" {
+	if name != "inventory" && name != "export" && name != "filtered" && name != "about" && name != "update" && name != "users" && name != "servers" && name != "storage" && name != "licenses" {
 		return fmt.Errorf("invalid capture")
 	}
 	path := filepath.Join(h.dir, name+".png")

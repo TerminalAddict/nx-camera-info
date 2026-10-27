@@ -1,16 +1,40 @@
 import { Call } from '/wails/runtime.js';
 import { initialiseAbout } from './about.js';
+import { renderInventory, sectionNames, sectionDescriptions } from './inventory.js';
 
 const $ = id => document.getElementById(id);
 const call = (method, ...args) => Call.ByName(`main.DesktopService.${method}`, ...args);
 let current = null, busy = false, sortKey = 'name', sortDirection = 1;
+let activeSection = 'cameras';
 const controls = ['close', 'filter', 'apply-filter', 'clear-filter', 'reveal', 'export', 'virtual', 'refresh'];
 function options() { return {filter: $('filter').value.trim(), reveal: current?.options.reveal || false, includeVirtual: $('virtual').checked}; }
 function enable() {
   for (const id of controls) $(id).disabled = busy || !current;
+  document.querySelectorAll('[data-section]').forEach(button => button.disabled = busy || !current);
   $('open').disabled = $('open-empty').disabled = busy;
   document.body.setAttribute('aria-busy', String(busy));
 }
+function showSection() {
+  const cameras = activeSection === 'cameras';
+  $('page-title').textContent = sectionNames[activeSection];
+  $('page-description').textContent = sectionDescriptions[activeSection];
+  document.querySelector('.stats').hidden = !cameras;
+  $('filter-form').hidden = $('reveal').hidden = !cameras;
+  $('virtual').closest('label').hidden = $('visibility').hidden = !cameras;
+  $('table-wrap').hidden = !current || !cameras;
+  $('report-panel').hidden = !current || cameras;
+  document.querySelector('.inventory').setAttribute('aria-label', sectionNames[activeSection]);
+  document.querySelectorAll('[data-section]').forEach(button => {
+    if (button.dataset.section === activeSection) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  if (current && !cameras) $('table-status').textContent = activeSection === 'system' ? `${current.report.servers.length} servers` : `${current.report[activeSection].length} records`;
+  renderInventory(current?.report, activeSection);
+}
+document.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => {
+  if (!current || busy) return;
+  activeSection = button.dataset.section; render(current);
+}));
 function message(text, error = false) {
   $('notice').hidden = $('error').hidden = true;
   if (text) { const el = $(error ? 'error' : 'notice'); el.textContent = text; el.hidden = false; }
@@ -66,7 +90,7 @@ function render(view) {
   $('visibility').textContent = reveal ? 'Passwords visible' : 'Passwords hidden'; $('visibility').className = reveal ? 'badge warning' : 'badge';
   $('table-status').textContent = view ? `${summary.matched_records} cameras · ${summary.virtual_records_omitted} virtual records omitted` : 'Ready to open a database';
   $('snapshot-status').textContent = view ? 'Snapshot · ' + (summary.server_versions.join(', ') || 'Nx version unavailable') : 'No network connections to cameras';
-  if (!view) { enable(); return; }
+  if (!view) { activeSection = 'cameras'; showSection(); enable(); return; }
   const cameras = [...view.report.cameras].sort((a,b) => String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), undefined, {numeric:true}) * sortDirection);
   $('no-results').hidden = cameras.length !== 0;
   for (const camera of cameras) {
@@ -79,7 +103,7 @@ function render(view) {
     const action = cell(row, ''); action.textContent = ''; const button = document.createElement('button'); button.className = 'row-details'; button.textContent = '›'; button.setAttribute('aria-label', 'Details for ' + camera.name); button.addEventListener('click', () => details(camera)); action.append(button);
     row.addEventListener('dblclick', () => details(camera)); $('rows').append(row);
   }
-  enable();
+  showSection(); enable();
 }
 async function openDatabase() { await perform(async () => { const view = await call('OpenDatabase'); if (view) render(view); }); }
 $('open').addEventListener('click', openDatabase); $('open-empty').addEventListener('click', openDatabase);
@@ -100,15 +124,15 @@ $('reveal').addEventListener('click', () => perform(async () => {
 }));
 $('export').addEventListener('click', () => {
   if (!current || busy) return;
-  $('export-scope').textContent = `Export the ${current.report.cameras.length} cameras in the current view${current.options.filter ? ' matching “' + current.options.filter + '”' : ''}.`;
-  $('export-privacy').textContent = current.options.reveal ? 'Passwords and complete URLs will be included in this file.' : 'Passwords and sensitive URL components will remain hidden.';
+  $('export-scope').textContent = `The full report includes ${current.report.cameras.length} cameras in the current view, ${current.report.users.length} users, ${current.report.servers.length} servers, ${current.report.storage.length} storage locations and ${current.report.licenses.length} licences. Camera filters apply only to cameras.`;
+  $('export-privacy').textContent = (current.options.reveal ? 'Camera passwords and complete camera URLs will be included.' : 'Camera passwords and sensitive URL components will remain hidden.') + ' Licence exports include full licence keys.';
   $('export-privacy').className = 'export-privacy' + (current.options.reveal ? ' revealed' : '');
   $('export-dialog').showModal();
 });
 $('save-export').addEventListener('click', () => {
   const format = document.querySelector('input[name=format]:checked').value;
   $('export-dialog').close();
-  perform(async () => { const result = await call('Export', format, current.options); if (result) message(`Exported ${result.count} cameras to ${result.filename}.`); });
+  perform(async () => { const result = await call('Export', format, {...current.options, section: $('export-section').value}); if (result) message(`Exported report to ${result.filename}.`); });
 });
 document.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
   if (!current || busy) return;
