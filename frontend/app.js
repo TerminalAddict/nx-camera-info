@@ -73,6 +73,7 @@ function details(camera) {
 function render(view) {
   current = view;
   $('details-dialog').close(); $('details').replaceChildren(); $('details-subtitle').textContent = '';
+  $('details-title').textContent = 'Details';
   $('empty').hidden = !!view; $('table-wrap').hidden = !view;
   $('filename').textContent = view?.filename || 'No database selected';
   $('loaded-at').textContent = view ? 'Opened ' + new Date(view.loadedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Open a database to begin.';

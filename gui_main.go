@@ -204,7 +204,7 @@ func main() {
 	menu.AddRole(application.EditMenu)
 	viewMenu := menu.AddSubmenu("View")
 	viewMenu.Add("Filter Cameras").SetAccelerator("CmdOrCtrl+f").OnClick(func(*application.Context) {
-		window.ExecJS("document.getElementById('filter').focus()")
+		window.ExecJS("document.getElementById('nav-cameras').click(); document.getElementById('filter').focus()")
 	})
 	viewMenu.Add("Refresh Database").SetAccelerator("CmdOrCtrl+r").OnClick(func(*application.Context) {
 		window.ExecJS("document.getElementById('refresh').click()")
