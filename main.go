@@ -18,17 +18,13 @@ import (
 	"unicode"
 )
 
-const version = "0.1.2"
+const version = "0.2.0"
 
 func defaultDatabasePath() string {
 	if runtime.GOOS == "linux" {
 		return "/opt/networkoptix/mediaserver/var/ecs.sqlite"
 	}
 	return "ecs.sqlite"
-}
-
-func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout, stderr io.Writer) int {

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NX Camera Info
+Comment=Browse an Nx Witness camera database
+Exec=nx-camera-info-gui
+Icon=nx-camera-info
+Terminal=false
+Categories=Utility;
+Keywords=camera;sqlite;Nx;Witness;

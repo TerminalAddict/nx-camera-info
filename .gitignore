@@ -5,3 +5,4 @@
 dist/
 /nx-camera-info
 camera-export*
+*.syso

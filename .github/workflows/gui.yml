@@ -1,0 +1,96 @@
+name: GUI builds and installers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: GUI ${{ matrix.platform }} ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, platform: linux, arch: amd64}
+          - {os: ubuntu-24.04-arm, platform: linux, arch: arm64}
+          - {os: windows-2025, platform: windows, arch: amd64}
+          - {os: windows-11-arm, platform: windows, arch: arm64}
+          - {os: macos-15-intel, platform: macos, arch: amd64}
+          - {os: macos-15, platform: macos, arch: arm64}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      NX_GUI_TEST_DIR: ${{ github.workspace }}/dist/gui-test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.8'
+      - name: Linux build and test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev xvfb dbus-x11 imagemagick rpm xdg-desktop-portal xdg-desktop-portal-gtk
+      - name: Go tests
+        run: go test ./...
+      - name: Windows resources
+        if: runner.os == 'Windows'
+        run: go run ./cmd/windows-resource ${{ matrix.arch }}
+      - name: Build desktop and native UI test executable
+        shell: bash
+        run: |
+          extra=""
+          if [ "${{ runner.os }}" = Windows ]; then extra="-H windowsgui"; fi
+          go build -tags gui,production -trimpath -ldflags="-s -w $extra" -o "dist/nx-camera-info-gui$(go env GOEXE)" .
+          go build -tags gui,guismoke -o "dist/nx-camera-info-gui-test$(go env GOEXE)" .
+      - name: Test Linux GUI in native WebKitGTK
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s '-screen 0 1280x900x24' dbus-run-session -- ./dist/nx-camera-info-gui-test
+        env:
+          GSK_RENDERER: cairo
+          LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: Test macOS GUI in native WebKit
+        if: runner.os == 'macOS'
+        run: ./dist/nx-camera-info-gui-test
+      - name: Test Windows GUI in WebView2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process dist/nx-camera-info-gui-test.exe -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "GUI tests failed: $($p.ExitCode)" }
+      - name: Verify GUI test result
+        shell: bash
+        run: python -c "import json; r=json.load(open('dist/gui-test/result.json')); print(r); assert r['passed']"
+      - name: Package Linux installers
+        if: runner.os == 'Linux'
+        run: |
+          bash scripts/package-linux.sh
+          sudo apt-get install -y ./dist/installers/*.deb
+          /usr/bin/nx-camera-info-gui --version
+          rpm -qp --requires dist/installers/*.rpm
+      - name: Package macOS installers
+        if: runner.os == 'macOS'
+        run: bash scripts/package-macos.sh
+      - name: Package Windows offline installer
+        if: runner.os == 'Windows'
+        run: ./scripts/package-windows.ps1 -Arch ${{ matrix.arch }}
+      - name: Upload installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: installers-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/installers/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload GUI evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: gui-evidence-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            dist/gui-test/*.png
+            dist/gui-test/result.json
+          retention-days: 14
