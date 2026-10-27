@@ -21,3 +21,9 @@ The source is [branding/icon.svg](../branding/icon.svg). Edit this file, then ru
 Colors: blue `#2878ed` → `#15459e`, navy `#102b56`, cyan `#75e1f5`, and white. Keep the camera, support arm, information badge, and transparent outer margin together when using the app icon.
 
 The installer files retain the operating system's normal package-file appearance where that is controlled by the OS. The branding is applied to the installer UI, installed application and desktop integration.
+
+## Windows installer
+
+This is the actual setup window captured during the native Windows release checks. The same mark is embedded in the setup executable, installed application, and uninstaller.
+
+![Branded NX Camera Info Windows setup](screenshots/installer-windows.png)

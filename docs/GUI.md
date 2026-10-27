@@ -94,6 +94,10 @@ These are captures of the running GUI with a generated **synthetic** database. C
 
 The Windows and macOS captures come from native CI desktops. The macOS menu identifies the test executable; installed bundles display **NX Camera Info**.
 
+### Windows installer
+
+![Windows setup with the CCTV camera and information branding](screenshots/installer-windows.png)
+
 ## Keyboard and desktop integration
 
 | Action | Windows/Linux | macOS |
