@@ -106,4 +106,5 @@ jobs:
           path: |
             dist/gui-test/*.png
             dist/gui-test/result.json
+            dist/gui-test/installer-result.json
           retention-days: 14

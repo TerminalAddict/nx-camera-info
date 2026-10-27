@@ -10,7 +10,7 @@ The Wails v3 desktop application provides native Open/Save dialogs and menus, sy
 
 ![NX Camera Info GUI on Linux, showing synthetic camera inventory](docs/screenshots/gui-linux-inventory.png)
 
-Get the installers from [release v0.3.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.0). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
+Get the installers from [release v0.3.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.1). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
 
 The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout the app, desktop launchers, and installers.
 
@@ -18,12 +18,12 @@ The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout
 
 | System | GUI installer / package |
 | --- | --- |
-| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.3.0-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
-| Linux ARM64 | `nx-camera-info-gui-0.3.0-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
-| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.3.0-windows-amd64-setup.exe` |
-| Windows ARM64 | `nx-camera-info-gui-0.3.0-windows-arm64-setup.exe` |
-| macOS Intel | `nx-camera-info-gui-0.3.0-macos-amd64.pkg` or `.dmg` |
-| macOS Apple Silicon | `nx-camera-info-gui-0.3.0-macos-arm64.pkg` or `.dmg` |
+| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.3.1-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
+| Linux ARM64 | `nx-camera-info-gui-0.3.1-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
+| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.3.1-windows-amd64-setup.exe` |
+| Windows ARM64 | `nx-camera-info-gui-0.3.1-windows-arm64-setup.exe` |
+| macOS Intel | `nx-camera-info-gui-0.3.1-macos-amd64.pkg` or `.dmg` |
+| macOS Apple Silicon | `nx-camera-info-gui-0.3.1-macos-arm64.pkg` or `.dmg` |
 
 Windows installers include Microsoft's full offline WebView2 installer. Linux DEB/RPM packages declare GTK4/WebKitGTK dependencies for the package manager to install; the archive includes a dependency-install script. macOS uses the built-in WebKit framework. These builds are not publisher-signed or Apple-notarized; see the guide for first-launch instructions.
 

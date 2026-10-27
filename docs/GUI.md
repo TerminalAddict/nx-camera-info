@@ -6,11 +6,17 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.3.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.3.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.3.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
 Run the matching `windows-amd64-setup.exe` or `windows-arm64-setup.exe`. Setup installs under your user account, creates Start menu and desktop shortcuts, and provides an uninstaller in Windows Settings.
+
+Starting in v0.3.1, setup and uninstall ask the installed NX Camera Info process to close normally and wait for it to exit before changing its files. They target the executable at the selected installation path, so a copy running elsewhere is not closed. If the app does not exit or a file remains locked/read-only, the operation stops with a **Retry/Cancel** message; silent mode returns a nonzero exit code. A failed file-access check preserves the app and its uninstall entry so removal can be retried. Concurrent setup/uninstall operations are blocked.
+
+Uninstall removes the executable, bundled notices, shortcuts, uninstall registration, and the app's WebView2 profile at `%APPDATA%\nx-camera-info-gui.exe`. It also removes an adjacent `nx-camera-info-gui.exe.WebView2` profile if an older build created one. Database files, exports, downloaded installers, and other user files are preserved; an installation folder containing those files is left in place. The shared Microsoft WebView2 runtime is retained.
+
+**Recovering from an older incomplete uninstall:** end `nx-camera-info-gui.exe` in Task Manager (or restart Windows), then install v0.3.1 or newer. The new setup can also close and repair an orphaned running executable when the old uninstall entry is already gone. Use its replacement uninstaller for future removal.
 
 The installer contains Microsoft's **full Evergreen Standalone WebView2 Runtime installer** for the selected architecture. It detects an existing runtime and installs the included runtime when missing, so installation does not need a runtime download. The Microsoft payload's Authenticode signature is checked during packaging. WebView2 subsequently receives Microsoft's normal updates; uninstalling NX Camera Info leaves this shared runtime installed.
 
@@ -31,13 +37,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.3.0-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.3.1-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.3.0-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.3.1-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -46,7 +52,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.3.0-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.3.1-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -80,7 +86,7 @@ When a newer version is available:
 2. Click **Download update…** and choose a destination in the native Save dialog. The app downloads the installer with progress and cancellation, then verifies its size and SHA-256 against GitHub's release metadata. Existing files are preserved; failed or cancelled downloads are removed.
 3. Click **Show downloaded installer**, quit NX Camera Info, then run the installer. On Linux, use APT/DNF as shown above, or extract the archive and run `install.sh`; on macOS, run the PKG or drag the app from the DMG into Applications. Relaunch and check the version.
 
-This is an in-app download with installation completed by the platform installer. It does not silently replace the running app or bypass operating-system installation prompts. If no verified matching package is available, the About page offers the release page. Offline and rate-limit errors can be retried. Version 0.2.1 and earlier require one manual download of 0.3.0 to gain this feature.
+This is an in-app download with installation completed by the platform installer. It does not silently replace the running app or bypass operating-system installation prompts. If no verified matching package is available, the About page offers the release page. Offline and rate-limit errors can be retried. Version 0.2.1 and earlier require one manual download of the latest release to gain this feature.
 
 ![About page with version, creator biography, and update check](screenshots/gui-about.png)
 
@@ -141,7 +147,7 @@ make gui
 
 On macOS install Xcode command-line tools first; `make gui` creates the executable, and `bash scripts/package-macos.sh` creates the app bundle, PKG and DMG. On Windows, generate the resources with `go run ./cmd/windows-resource amd64` (or `arm64`), then build with `go build -tags gui,production -ldflags="-s -w -H windowsgui" -o dist/nx-camera-info-gui.exe .`.
 
-The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. It also checks the About page, portrait, version, links, current/new release states, offline errors, download cancellation, checksum failure, retry, and saving/revealing a verified download. Native dialog selections, external browser/file-manager launches, and GitHub HTTP responses are substituted in these automated tests; the real Go services, updater, file writes, Wails bridge, rendered controls, and SQLite reader are exercised. The synthetic update payload is never executed. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
+The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. It also checks the About page, portrait, version, links, current/new release states, offline errors, download cancellation, checksum failure, retry, and saving/revealing a verified download. Native dialog selections, external browser/file-manager launches, and GitHub HTTP responses are substituted in these automated tests; the real Go services, updater, file writes, Wails bridge, rendered controls, and SQLite reader are exercised. The synthetic update payload is never executed. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. Windows additionally launches the actual installed GUI and tests upgrade/uninstall while running, an unrelated running copy, forced file-lock failures, recovery of an orphaned executable, cache/shortcut/registry cleanup, preservation of user files, and custom installation paths. These installer tests use the real installer, uninstaller and native processes on AMD64 and ARM64. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
 
 For a local native Linux UI test and fresh screenshots:
 

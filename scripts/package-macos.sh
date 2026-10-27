@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.3.0
+version=0.3.1
 stage="$(mktemp -d)"
 cleanup() {
   hdiutil detach "$stage/mount" -quiet >/dev/null 2>&1 || true

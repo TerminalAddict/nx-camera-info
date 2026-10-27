@@ -32,10 +32,10 @@ func main() {
 		log.Fatal(err)
 	}
 	rs.SetManifest(winres.AppManifest{ExecutionLevel: winres.AsInvoker, DPIAwareness: winres.DPIPerMonitorV2, UseCommonControlsV6: true, LongPathAware: true})
-	vi := version.Info{FileVersion: [4]uint16{0, 3, 0, 0}, ProductVersion: [4]uint16{0, 3, 0, 0}}
+	vi := version.Info{FileVersion: [4]uint16{0, 3, 1, 0}, ProductVersion: [4]uint16{0, 3, 1, 0}}
 	vi.Set(0, version.ProductName, "NX Camera Info")
 	vi.Set(0, version.FileDescription, "NX Camera Info desktop database explorer")
-	vi.Set(0, version.ProductVersion, "0.3.0")
+	vi.Set(0, version.ProductVersion, "0.3.1")
 	rs.SetVersionInfo(vi)
 	out, err := os.Create("rsrc_windows_" + os.Args[1] + ".syso")
 	if err != nil {

@@ -13,10 +13,12 @@ if (-not (Test-Path $nsis)) {
     choco install nsis --yes --no-progress
     if ($LASTEXITCODE -ne 0) { throw 'Could not install NSIS.' }
 }
+& go build -trimpath '-ldflags=-s -w -H windowsgui' -o dist/nx-maintenance.exe ./cmd/windows-maintenance
+if ($LASTEXITCODE -ne 0) { throw 'Could not build the native installer maintenance helper.' }
 & $nsis "/DARCH=$Arch" packaging/windows.nsi
 if ($LASTEXITCODE -ne 0) { throw 'NSIS packaging failed.' }
 # Install into the disposable CI runner and verify the installed executable.
-$installer = Resolve-Path "dist/installers/nx-camera-info-gui-0.3.0-windows-$Arch-setup.exe"
+$installer = Resolve-Path "dist/installers/nx-camera-info-gui-0.3.1-windows-$Arch-setup.exe"
 $process = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
 if ($process.ExitCode -ne 0) { throw "Installer exited $($process.ExitCode)" }
 $installed = "$env:LOCALAPPDATA\Programs\NX Camera Info\nx-camera-info-gui.exe"
@@ -70,4 +72,5 @@ public static class NXInstallerWindow {
         if (-not $preview.HasExited) { Stop-Process -Id $preview.Id -Force }
     }
 }
+& "$PSScriptRoot/test-windows-installer.ps1" -Installer "$installer"
 Get-FileHash dist/WebView2Setup.exe | Format-List
