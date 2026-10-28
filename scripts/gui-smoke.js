@@ -44,6 +44,14 @@
     assert((await harness('UpdateEvidence')).shownFile.endsWith('update-installer.test'),'download not revealed');
     $('release-link').click(); await sleep(100);
     assert((await harness('UpdateEvidence')).openedLink.endsWith('/releases/tag/v99.0.0'),'wrong release link');
+    assert(!$('install-update').disabled && $('install-update').textContent === 'Install and close','install action missing');
+    await capture('install-update');
+    await harness('HoldActivity',true);
+    await updateClick('install-update');
+    assert($('update-error').textContent.includes('Finish the current database operation') && (await harness('UpdateEvidence')).installLaunches===0,'install interrupted an active operation');
+    await harness('HoldActivity',false);
+    await harness('Select','update-install-fail'); await updateClick('install-update');
+    assert($('about-dialog').open && $('update-error').textContent.includes('synthetic installer launch failure') && !$('install-update').disabled,'failed installer launch did not keep the app open for retry');
     await click('about-close'); assert(!$('about-dialog').open,'About did not close');
     assert($('export').disabled, 'export enabled without database');
     await harness('Select','cancel'); await click('open'); assert($('filename').textContent === 'No database selected','cancel changed database');
@@ -95,6 +103,8 @@
     await click('refresh'); assert($('rows').children.length===9,'refresh lost options');
     await harness('Select','invalid'); await click('open'); assert(!$('error').hidden,'invalid database not reported'); assert($('rows').children.length===9,'invalid open discarded snapshot');
     await click('close'); assert($('rows').children.length===0 && $('export').disabled && $('report-panel').children.length===0,'close did not clear data');
-    await harness('Done','');
+    await click('about-open');
+    await harness('Select','update-install');
+    $('install-update').click(); // Success must reach the real service quit path.
   } catch(error) { await harness('Done',String(error) + '\n' + (error.stack || '')); }
 })().catch(error => console.error(error));

@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $defaultDir = Join-Path $env:LOCALAPPDATA 'Programs/NX Camera Info'
 $registryPath = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo'
 $profile = Join-Path $env:APPDATA 'nx-camera-info-gui.exe'
+$updateCache = Join-Path $env:LOCALAPPDATA 'nx-camera-info/updates'
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'NX Camera Info.lnk'
 $startShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'NX Camera Info/NX Camera Info.lnk'
 $scratch = Join-Path ([IO.Path]::GetTempPath()) ('nx-installer-tests-' + [Guid]::NewGuid())
@@ -94,6 +95,37 @@ try {
     Assert-Stopped $other
     Record 'Upgrade gracefully closes only the installed app; another copy stays running'
 
+    # The in-app updater starts setup with its PID and then quits normally.
+    # Verify that this handoff waits instead of touching a still-running app.
+    $beforeHandoff = (Get-FileHash $installed).Hash
+    $invalidHandoff = Start-Process -FilePath $Installer -ArgumentList "/S /WAITPID=invalid /D=$defaultDir" -PassThru
+    try {
+        Assert-True ($invalidHandoff.WaitForExit(180000)) 'Invalid update handoff timed out.'
+        Assert-True ($invalidHandoff.ExitCode -ne 0) 'Setup accepted an invalid updater process ID.'
+        Assert-True ((Get-FileHash $installed).Hash -eq $beforeHandoff) 'Invalid handoff changed the installed executable.'
+    } finally {
+        if (-not $invalidHandoff.HasExited) { Stop-Process -Id $invalidHandoff.Id -Force }
+        $invalidHandoff.Dispose()
+    }
+    $running = Start-App $defaultDir
+    $updater = Start-Process -FilePath $Installer -ArgumentList "/S /WAITPID=$($running.Id) /D=$defaultDir" -PassThru
+    try {
+        Start-Sleep -Seconds 3
+        $running.Refresh()
+        $updater.Refresh()
+        Assert-True (-not $running.HasExited) 'Update setup closed the app before its requested handoff.'
+        Assert-True (-not $updater.HasExited) 'Update setup did not wait for the old process.'
+        $running.CloseMainWindow() | Out-Null
+        Assert-Stopped $running
+        Assert-True ($updater.WaitForExit(180000)) 'Update setup timed out after app exit.'
+        Assert-True ($updater.ExitCode -eq 0) 'Update setup failed after app exit.'
+        Assert-Installed $defaultDir
+    } finally {
+        if (-not $updater.HasExited) { Stop-Process -Id $updater.Id -Force }
+        $updater.Dispose()
+    }
+    Record 'Install-and-close handoff waits for the supplied app PID and completes after graceful exit'
+
     $before = (Get-FileHash $installed).Hash
     $lock = [IO.File]::Open($installed, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
@@ -113,6 +145,8 @@ try {
     $legacyProfile = Join-Path $defaultDir 'nx-camera-info-gui.exe.WebView2'
     New-Item -ItemType Directory -Force $legacyProfile | Out-Null
     [IO.File]::WriteAllText((Join-Path $legacyProfile 'cache-test'), 'old cache')
+    New-Item -ItemType Directory -Force $updateCache | Out-Null
+    [IO.File]::WriteAllText((Join-Path $updateCache 'staged-installer-test'), 'update cache')
     $running = Start-App $defaultDir
     Run-Uninstall $defaultDir
     Assert-Stopped $running
@@ -124,6 +158,7 @@ try {
     Assert-True (-not (Test-Path $startShortcut)) 'Start-menu shortcut was left behind.'
     Assert-True (-not (Test-Path $profile)) 'Roaming WebView2 data was left behind.'
     Assert-True (-not (Test-Path $legacyProfile)) 'Adjacent legacy WebView2 data was left behind.'
+    Assert-True (-not (Test-Path $updateCache)) 'Staged update installers were left behind.'
     Assert-True ([IO.File]::ReadAllText($database) -eq 'user database sentinel') 'User database was changed.'
     Assert-True ([IO.File]::ReadAllText($export) -eq 'user export sentinel') 'User export was changed.'
     Record 'Uninstall while running closes the GUI and removes app files, shortcuts, registration and cache; user files survive'

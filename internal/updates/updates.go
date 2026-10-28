@@ -43,6 +43,7 @@ type State struct {
 	Received       int64      `json:"received"`
 	Total          int64      `json:"total"`
 	SavedPath      string     `json:"savedPath"`
+	InstallLabel   string     `json:"installLabel"`
 }
 
 type Manager struct {
@@ -51,6 +52,8 @@ type Manager struct {
 	client                    *http.Client
 	platform, arch, preferred string
 	cancel                    context.CancelFunc
+	ready                     Download
+	cacheDir                  string
 }
 
 func New(current, platform, arch, preferred string, transport http.RoundTripper) *Manager {
@@ -70,7 +73,7 @@ func (m *Manager) State() State {
 }
 
 func busy(status string) bool {
-	return status == "checking" || status == "choosing" || status == "downloading"
+	return status == "checking" || status == "choosing" || status == "downloading" || status == "installing"
 }
 
 func (m *Manager) Check() State {
@@ -80,6 +83,7 @@ func (m *Manager) Check() State {
 		return m.State()
 	}
 	current := m.state.CurrentVersion
+	m.ready = Download{}
 	m.state = State{Status: "checking", CurrentVersion: current, Message: "Checking GitHub…"}
 	m.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -267,6 +271,8 @@ func (m *Manager) Download(name string, choose func(string) (string, error)) Sta
 	m.state.Status = "choosing"
 	m.state.Error = ""
 	m.state.SavedPath = ""
+	m.state.InstallLabel = ""
+	m.ready = Download{}
 	m.state.Message = "Choose where to save the installer."
 	m.state.Received = 0
 	m.state.Total = asset.Size
@@ -297,9 +303,14 @@ func (m *Manager) Download(name string, choose func(string) (string, error)) Sta
 	default:
 		m.state.Status = "ready"
 		m.state.SavedPath = path
-		m.state.Message = "Download verified. Quit NX Camera Info, then run the installer to finish updating."
-		if strings.HasSuffix(asset.Name, ".tar.gz") {
-			m.state.Message = "Download verified. Quit NX Camera Info, extract the archive, then run install.sh to finish updating."
+		m.ready = asset
+		m.state.InstallLabel = "Install and close"
+		m.state.Message = "Download verified. Install and close opens setup and closes NX Camera Info automatically. Complete the installer prompts to finish updating."
+		if m.platform == "linux" {
+			m.state.Message = "Download verified. Install and close opens a terminal for installation and closes NX Camera Info automatically. Follow the package manager prompts, then reopen the app."
+		} else if strings.HasSuffix(asset.Name, ".dmg") {
+			m.state.InstallLabel = "Open disk image and close"
+			m.state.Message = "Download verified. Open the disk image and close NX Camera Info automatically, then drag the app into Applications. Choose the PKG download for guided installation."
 		}
 	}
 	m.mu.Unlock()

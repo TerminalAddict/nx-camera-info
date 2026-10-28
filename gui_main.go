@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"nx-camera-info/internal/updates"
@@ -30,6 +31,8 @@ var guiAfterRun = func() {}
 var guiExtraServices []application.Service
 
 type DesktopService struct {
+	activity     sync.RWMutex
+	closing      bool
 	session      cameraSession
 	chooseOpen   func() (string, error)
 	chooseSave   func(string) (string, error)
@@ -37,6 +40,36 @@ type DesktopService struct {
 	updater      *updates.Manager
 	openURL      func(string) error
 	showFile     func(string) error
+	launchUpdate func(string) error
+	quit         func()
+}
+
+func (d *DesktopService) beginActivity() error {
+	d.activity.RLock()
+	if d.closing {
+		d.activity.RUnlock()
+		return fmt.Errorf("NX Camera Info is closing for an update")
+	}
+	return nil
+}
+
+func (d *DesktopService) InstallUpdate() updates.State {
+	if !d.activity.TryLock() {
+		s := d.updater.State()
+		s.Error = "Finish the current database operation or file dialog before installing."
+		return s
+	}
+	defer d.activity.Unlock()
+	if d.closing {
+		return d.updater.State()
+	}
+	s := d.updater.Install(d.launchUpdate)
+	if s.Status == "installing" {
+		d.closing = true
+		d.session.close()
+		d.quit()
+	}
+	return s
 }
 
 func (d *DesktopService) Info() map[string]string {
@@ -88,6 +121,10 @@ func preferredInstaller() string {
 }
 
 func (d *DesktopService) OpenDatabase() (*CameraView, error) {
+	if err := d.beginActivity(); err != nil {
+		return nil, err
+	}
+	defer d.activity.RUnlock()
 	path, err := d.chooseOpen()
 	if err != nil || path == "" {
 		return nil, err
@@ -100,6 +137,10 @@ func (d *DesktopService) View(options ViewOptions) (CameraView, error) {
 	return d.session.view(options)
 }
 func (d *DesktopService) Refresh(options ViewOptions) (CameraView, error) {
+	if err := d.beginActivity(); err != nil {
+		return CameraView{}, err
+	}
+	defer d.activity.RUnlock()
 	return d.session.refresh(options)
 }
 func (d *DesktopService) CloseDatabase() { d.session.close() }
@@ -110,6 +151,10 @@ type ExportResult struct {
 }
 
 func (d *DesktopService) Export(format string, options ViewOptions) (*ExportResult, error) {
+	if err := d.beginActivity(); err != nil {
+		return nil, err
+	}
+	defer d.activity.RUnlock()
 	if format != "csv" && format != "json" {
 		return nil, fmt.Errorf("choose CSV or JSON")
 	}
@@ -180,6 +225,8 @@ func main() {
 	}
 	service.openURL = app.Browser.OpenURL
 	service.showFile = func(path string) error { return app.Env.OpenFileManager(path, true) }
+	service.launchUpdate = updates.LaunchInstaller
+	service.quit = app.Quit
 	showAbout := func(*application.Context) { window.ExecJS("document.getElementById('about-open').click()") }
 	checkUpdates := func(*application.Context) { window.ExecJS("document.getElementById('updates-open').click()") }
 	menu := app.Menu.New()

@@ -11,7 +11,7 @@ export async function initialiseAbout(info, call) {
 
   function render(next) {
     state = next;
-    const pending = ['checking', 'choosing', 'downloading'].includes(state.status);
+    const pending = ['checking', 'choosing', 'downloading', 'installing'].includes(state.status);
     $('check-updates').disabled = active || pending;
     $('check-updates').textContent = state.status === 'checking' ? 'Checking…' : 'Check for updates';
     $('update-status').textContent = state.message;
@@ -33,6 +33,9 @@ export async function initialiseAbout(info, call) {
     $('update-progress').value = state.total ? Math.min(100, state.received / state.total * 100) : 0;
     $('update-progress-label').textContent = `${size(state.received)} / ${size(state.total)}`;
     $('update-saved').hidden = state.status !== 'ready';
+    $('install-update').disabled = active || state.status !== 'ready';
+    $('install-update').textContent = state.installLabel || 'Install and close';
+    $('show-update').disabled = active;
     $('update-path').textContent = state.savedPath || '';
     $('release-link').hidden = !state.releaseURL;
   }
@@ -49,7 +52,12 @@ export async function initialiseAbout(info, call) {
     if (active) return;
     active = true;
     $('about-error').hidden = true;
-    render({...state, status: method === 'CheckForUpdates' ? 'checking' : 'choosing', message: method === 'CheckForUpdates' ? 'Checking GitHub…' : 'Choose where to save the installer.', error: ''});
+    const starting = {
+      CheckForUpdates: ['checking', 'Checking GitHub…'],
+      DownloadUpdate: ['choosing', 'Choose where to save the installer.'],
+      InstallUpdate: ['installing', 'Verifying the installer and preparing to close…']
+    }[method];
+    render({...state, status: starting[0], message: starting[1], error: ''});
     let polling = true;
     // Poll serially so a slow bridge cannot queue overlapping status requests.
     const poll = async () => {
@@ -79,6 +87,7 @@ export async function initialiseAbout(info, call) {
   $('updates-open').addEventListener('click', () => { showAbout(); void action('CheckForUpdates'); });
   $('check-updates').addEventListener('click', () => action('CheckForUpdates'));
   $('download-update').addEventListener('click', () => action('DownloadUpdate', $('update-package').value));
+  $('install-update').addEventListener('click', () => action('InstallUpdate'));
   $('cancel-update').addEventListener('click', () => external('CancelUpdateDownload'));
   $('show-update').addEventListener('click', () => external('ShowUpdateDownload'));
   document.querySelectorAll('[data-link]').forEach(button => button.addEventListener('click', () => external('OpenLink', button.dataset.link)));

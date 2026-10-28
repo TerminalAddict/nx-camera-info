@@ -6,7 +6,7 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.4.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.5.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.5.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -14,7 +14,7 @@ Run the matching `windows-amd64-setup.exe` or `windows-arm64-setup.exe`. Setup i
 
 Starting in v0.3.1, setup and uninstall ask the installed NX Camera Info process to close normally and wait for it to exit before changing its files. They target the executable at the selected installation path, so a copy running elsewhere is not closed. If the app does not exit or a file remains locked/read-only, the operation stops with a **Retry/Cancel** message; silent mode returns a nonzero exit code. A failed file-access check preserves the app and its uninstall entry so removal can be retried. Concurrent setup/uninstall operations are blocked.
 
-Uninstall removes the executable, bundled notices, shortcuts, uninstall registration, and the app's WebView2 profile at `%APPDATA%\nx-camera-info-gui.exe`. It also removes an adjacent `nx-camera-info-gui.exe.WebView2` profile if an older build created one. Database files, exports, downloaded installers, and other user files are preserved; an installation folder containing those files is left in place. The shared Microsoft WebView2 runtime is retained.
+Uninstall removes the executable, bundled notices, shortcuts, uninstall registration, and the app's WebView2 profile at `%APPDATA%\nx-camera-info-gui.exe`. It also removes an adjacent `nx-camera-info-gui.exe.WebView2` profile if an older build created one, and the private staged-update cache at `%LOCALAPPDATA%\nx-camera-info\updates`. Database files, exports, user-selected installer downloads, and other user files are preserved; an installation folder containing those files is left in place. The shared Microsoft WebView2 runtime is retained.
 
 **Recovering from an older incomplete uninstall:** end `nx-camera-info-gui.exe` in Task Manager (or restart Windows), then install v0.3.1 or newer. The new setup can also close and repair an orphaned running executable when the old uninstall entry is already gone. Use its replacement uninstaller for future removal.
 
@@ -37,13 +37,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.4.1-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.5.0-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.4.1-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.5.0-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -52,7 +52,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.4.1-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.5.0-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -87,9 +87,18 @@ When a newer version is available:
 
 1. Choose a package for your current OS and CPU. Linux offers DEB, RPM, and tar.gz when published; macOS offers PKG and DMG; Windows offers its matching setup EXE.
 2. Click **Download update…** and choose a destination in the native Save dialog. The app downloads the installer with progress and cancellation, then verifies its size and SHA-256 against GitHub's release metadata. Existing files are preserved; failed or cancelled downloads are removed.
-3. Click **Show downloaded installer**, quit NX Camera Info, then run the installer. On Linux, use APT/DNF as shown above, or extract the archive and run `install.sh`; on macOS, run the PKG or drag the app from the DMG into Applications. Relaunch and check the version.
+3. Click **Install and close**. The app checks the downloaded file again, stages a verified copy in its private update cache, starts the installer and closes automatically. If verification or launch fails, the app stays open with an error and the saved download remains available. Installation is blocked while a database operation, export or file dialog is active. Reopen your database after updating.
+4. Complete the installer prompts and reopen NX Camera Info. On Windows the Finish page offers **Open NX Camera Info**. On macOS the PKG opens in Apple's Installer. On Linux a terminal waits for the app to exit, then runs APT/DNF for DEB/RPM packages, or the archive's `install.sh`; authentication, progress and failures remain visible in that window.
 
-This is an in-app download with installation completed by the platform installer. It does not silently replace the running app or bypass operating-system installation prompts. If no verified matching package is available, the About page offers the release page. Offline and rate-limit errors can be retried. Version 0.2.1 and earlier require one manual download of the latest release to gain this feature.
+Windows AMD64/ARM64 and both macOS/Linux architectures support this handoff. Windows setup waits for the updater process to exit before installation and retains its existing checks for other running instances and locked files. Linux uses an installed terminal (`x-terminal-emulator`, GNOME Terminal, Konsole or xterm) and `sudo`; the Linux packages and dependency script include xterm and sudo. If a terminal or the correct package tool is missing, the app stays open with an explanation. Select the package format that matches your original installation.
+
+For macOS DMG downloads, the button says **Open disk image and close**; drag the app into Applications after it opens. The PKG is the default for guided installation. **Show downloaded installer** remains available on every platform for manual installation. Normal installer, authentication and OS security prompts still apply. Canceling an installer after launch leaves the app closed; reopen the existing installation if the update was not applied.
+
+Staged installers are retained under the user's cache directory in `nx-camera-info/updates` so they can outlive the app. Staging directories older than seven days are removed on a later installation attempt. The app never deletes your chosen download. Checks remain manual; a discovered or downloaded update does not close the app until you click the install button. If no verified matching package is available, the About page offers the release page. Offline and rate-limit errors can be retried.
+
+**Versions through 0.4.1 require manually opening the downloaded installer once to reach this release.** The new button becomes available after installing 0.5.0 and will handle subsequent upgrades.
+
+![Verified update with Install and close](screenshots/gui-install-update.png)
 
 ![About page with version, creator biography, and update check](screenshots/gui-about.png)
 
@@ -160,7 +169,7 @@ make gui
 
 On macOS install Xcode command-line tools first; `make gui` creates the executable, and `bash scripts/package-macos.sh` creates the app bundle, PKG and DMG. On Windows, generate the resources with `go run ./cmd/windows-resource amd64` (or `arm64`), then build with `go build -tags gui,production -ldflags="-s -w -H windowsgui" -o dist/nx-camera-info-gui.exe .`.
 
-The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. It also checks the About page, portrait, version, links, current/new release states, offline errors, download cancellation, checksum failure, retry, and saving/revealing a verified download. Native dialog selections, external browser/file-manager launches, and GitHub HTTP responses are substituted in these automated tests; the real Go services, updater, file writes, Wails bridge, rendered controls, and SQLite reader are exercised. The synthetic update payload is never executed. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. Windows additionally launches the actual installed GUI and tests upgrade/uninstall while running, an unrelated running copy, forced file-lock failures, recovery of an orphaned executable, cache/shortcut/registry cleanup, preservation of user files, and custom installation paths. These installer tests use the real installer, uninstaller and native processes on AMD64 and ARM64. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
+The [GUI workflow](../.github/workflows/gui.yml) builds on native runners for all six targets, launches the actual system WebView, and exercises open/cancel, masked rendering, reveal/hide, camera details, filtering, virtual cameras, refresh, CSV/JSON export, overwrite refusal, invalid database handling, and close. It also checks the About page, portrait, version, links, current/new release states, offline errors, download cancellation, checksum failure, retry, and saving/revealing a verified download, blocked installation during an active operation, installer launch failure/retry, and the successful install-and-close service path. The installer launcher is substituted in GUI smoke tests, so synthetic payloads are never executed. Native dialog selections, external browser/file-manager launches, and GitHub HTTP responses are substituted in these automated tests; the real Go services, updater, file writes, Wails bridge, rendered controls, and SQLite reader are exercised. Linux also opens a real terminal under Xvfb and verifies that its synthetic package command waits for the old process to exit. macOS packaging opens the real PKG in Apple’s Installer without starting a second installation. Installer checks verify installation of the DEB, Windows setup, and macOS PKG; RPM installation is checked in Fedora containers. Windows additionally launches the actual installed GUI and tests upgrade/uninstall while running, an unrelated running copy, forced file-lock failures, recovery of an orphaned executable, cache/shortcut/registry cleanup, preservation of user files, and custom installation paths and the update process-ID wait. These installer tests use the real installer, uninstaller and native processes on AMD64 and ARM64. The test harness is excluded from release binaries. The production Linux build was also checked through the real native Open and Save dialogs, including a masked CSV export.
 
 For a local native Linux UI test and fresh screenshots:
 

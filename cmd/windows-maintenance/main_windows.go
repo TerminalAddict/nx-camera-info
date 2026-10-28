@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -31,6 +32,13 @@ func main() {
 }
 
 func run(args []string) error {
+	if len(args) == 2 && args[0] == "wait" {
+		pid, err := strconv.ParseUint(args[1], 10, 32)
+		if err != nil || pid == 0 {
+			return fmt.Errorf("invalid update process ID")
+		}
+		return waitProcess(uint32(pid), 30*time.Second)
+	}
 	if len(args) < 2 || (args[0] != "install" && args[0] != "uninstall") {
 		return fmt.Errorf("expected install or uninstall and an installation directory")
 	}
@@ -59,13 +67,17 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
+		local, err := windows.KnownFolderPath(windows.FOLDERID_LocalAppData, 0)
+		if err != nil {
+			return err
+		}
 		// Wails v3 defaults to this executable-specific roaming profile. The
 		// adjacent SDK-default profile is also removed if an older build made it.
-		profiles := []string{filepath.Join(roaming, appExecutable), filepath.Join(dir, appExecutable+".WebView2")}
+		profiles := []string{filepath.Join(roaming, appExecutable), filepath.Join(dir, appExecutable+".WebView2"), filepath.Join(local, "nx-camera-info", "updates")}
 		for _, path := range profiles {
 			// WebView2 can take a moment to release its profile after WM_CLOSE.
 			if err := retry(10*time.Second, func() error { return os.RemoveAll(path) }); err != nil {
-				return fmt.Errorf("could not remove the app's WebView2 data at %s: %w", path, err)
+				return fmt.Errorf("could not remove the app's cache at %s: %w", path, err)
 			}
 		}
 		for _, name := range installedFiles {
@@ -73,6 +85,25 @@ func run(args []string) error {
 				return fmt.Errorf("could not remove %s: %w", name, err)
 			}
 		}
+	}
+	return nil
+}
+
+func waitProcess(pid uint32, timeout time.Duration) error {
+	h, err := windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
+		return nil // The updater already exited before setup reached this step.
+	}
+	if err != nil {
+		return fmt.Errorf("cannot wait for the updating app: %w", err)
+	}
+	defer windows.CloseHandle(h)
+	state, err := windows.WaitForSingleObject(h, uint32(timeout.Milliseconds()))
+	if err != nil {
+		return err
+	}
+	if state != windows.WAIT_OBJECT_0 {
+		return fmt.Errorf("NX Camera Info did not exit; no installation has started")
 	}
 	return nil
 }

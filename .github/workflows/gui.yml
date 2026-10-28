@@ -34,7 +34,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev xvfb dbus-x11 imagemagick rpm xdg-desktop-portal xdg-desktop-portal-gtk
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev xvfb dbus-x11 imagemagick rpm xdg-desktop-portal xdg-desktop-portal-gtk xterm
       - name: Go tests
         run: go test ./...
       - name: Allow the test app to start WebKit's user-namespace sandbox
@@ -60,7 +60,9 @@ jobs:
           go build -tags gui,guismoke,production -o "dist/nx-camera-info-gui-test$(go env GOEXE)" .
       - name: Test Linux GUI in native WebKitGTK
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s '-screen 0 1280x900x24' dbus-run-session -- ./dist/nx-camera-info-gui-test
+        run: |
+          xvfb-run -a -s '-screen 0 1280x900x24' dbus-run-session -- ./dist/nx-camera-info-gui-test
+          NX_TEST_TERMINAL_HANDOFF=1 xvfb-run -a go test ./internal/updates -run '^TestLinuxNativeTerminalHandoff$' -count=1
         env:
           GSK_RENDERER: cairo
           LIBGL_ALWAYS_SOFTWARE: '1'

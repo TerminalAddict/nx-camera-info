@@ -18,7 +18,7 @@ import (
 	"unicode"
 )
 
-const version = "0.4.1"
+const version = "0.5.0"
 
 func defaultDatabasePath() string {
 	if runtime.GOOS == "linux" {

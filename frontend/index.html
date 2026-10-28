@@ -55,7 +55,7 @@
       <p id="update-error" role="alert" hidden></p>
       <div id="update-offer" hidden><label for="update-package">Installer for this computer</label><select id="update-package"></select><button id="download-update" class="primary">Download update…</button></div>
       <div id="update-progress-wrap" hidden><progress id="update-progress" max="100" value="0" aria-label="Update download progress"></progress><div class="progress-caption"><span id="update-progress-label"></span><button id="cancel-update" class="quiet">Cancel download</button></div></div>
-      <div id="update-saved" hidden><p id="update-path"></p><button id="show-update">Show downloaded installer</button></div>
+      <div id="update-saved" hidden><p id="update-path"></p><p class="subtle">The app will close when the installer opens. Reopen your database after updating.</p><button id="install-update" class="primary">Install and close</button> <button id="show-update">Show downloaded installer</button></div>
       <button id="release-link" class="text-link" data-link="release" hidden>Release notes on GitHub ↗</button>
       <p class="subtle update-privacy">Checks run only when you ask. Only release requests go to GitHub; your database and camera details stay on this computer.</p>
     </section>

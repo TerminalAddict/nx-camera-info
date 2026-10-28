@@ -2,17 +2,18 @@ Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "x64.nsh"
+!include "FileFunc.nsh"
 Name "NX Camera Info"
-OutFile "..\dist\installers\nx-camera-info-gui-0.4.1-windows-${ARCH}-setup.exe"
+OutFile "..\dist\installers\nx-camera-info-gui-0.5.0-windows-${ARCH}-setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\NX Camera Info"
 InstallDirRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "InstallLocation"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-VIProductVersion "0.4.1.0"
+VIProductVersion "0.5.0.0"
 VIAddVersionKey "ProductName" "NX Camera Info"
 VIAddVersionKey "FileDescription" "NX Camera Info Setup"
-VIAddVersionKey "FileVersion" "0.4.1"
-VIAddVersionKey "ProductVersion" "0.4.1"
+VIAddVersionKey "FileVersion" "0.5.0"
+VIAddVersionKey "ProductVersion" "0.5.0"
 BrandingText "NX Camera Info"
 !define MUI_ABORTWARNING
 !define MUI_ICON "icon.ico"
@@ -26,12 +27,15 @@ BrandingText "NX Camera Info"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_FINISHPAGE_RUN "$INSTDIR\nx-camera-info-gui.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Open NX Camera Info"
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
 Var MaintenanceMutex
+Var UpdatePID
 
 ; Serialize setup and removal for this app. Keep the mutex handle until exit.
 !macro MaintenanceInit PREFIX
@@ -78,6 +82,22 @@ FunctionEnd
 
 Function .onInit
   Call MaintenanceInit
+  ${GetParameters} $0
+  ${GetOptions} $0 "/WAITPID=" $UpdatePID
+  ${If} $UpdatePID != ""
+    InitPluginsDir
+    SetOutPath "$PLUGINSDIR"
+    File /oname=nx-maintenance.exe "..\dist\nx-maintenance.exe"
+    nsExec::ExecToStack '"$PLUGINSDIR\nx-maintenance.exe" wait "$UpdatePID"'
+    Pop $0
+    Pop $1
+    ${If} $0 != "0"
+      IfSilent +2
+      MessageBox MB_ICONSTOP "$1"
+      SetErrorLevel 1
+      Abort
+    ${EndIf}
+  ${EndIf}
   ${IfNot} ${RunningX64}
     MessageBox MB_ICONSTOP "This installer requires 64-bit Windows."
     Abort
@@ -138,7 +158,7 @@ Section "Install"
   CreateShortcut "$DESKTOP\NX Camera Info.lnk" "$INSTDIR\nx-camera-info-gui.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayName" "NX Camera Info"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayVersion" "0.4.1"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayVersion" "0.5.0"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "DisplayIcon" "$INSTDIR\nx-camera-info-gui.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\NXCameraInfo" "InstallLocation" "$INSTDIR"

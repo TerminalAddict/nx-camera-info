@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.4.1
+version=0.5.0
 stage="$(mktemp -d)"
 cleanup() {
   hdiutil detach "$stage/mount" -quiet >/dev/null 2>&1 || true
@@ -84,3 +84,6 @@ hdiutil convert "$stage/install.dmg" -format UDZO -o "dist/installers/nx-camera-
 # Validate that the installer really installs a runnable bundle on this runner.
 sudo installer -pkg "dist/installers/nx-camera-info-gui-${version}-macos-${arch}.pkg" -target /
 '/Applications/NX Camera Info.app/Contents/MacOS/nx-camera-info-gui' --version
+if [ "${CI:-}" = true ]; then
+  NX_TEST_NATIVE_PKG="$PWD/dist/installers/nx-camera-info-gui-${version}-macos-${arch}.pkg" go test ./internal/updates -run '^TestMacNativeInstallerHandoff$' -count=1
+fi

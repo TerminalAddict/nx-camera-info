@@ -4,9 +4,21 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
+
+func TestUpdateWaitTimesOutWithoutTerminatingProcess(t *testing.T) {
+	if err := waitProcess(uint32(os.Getpid()), 20*time.Millisecond); err == nil {
+		t.Fatal("wait accepted an app that is still running")
+	}
+	for _, pid := range []string{"0", "-1", "invalid", "4294967296"} {
+		if err := run([]string{"wait", pid}); err == nil {
+			t.Fatalf("invalid PID accepted: %s", pid)
+		}
+	}
+}
 
 func TestReplacementPreservesLockedFile(t *testing.T) {
 	dir := t.TempDir()

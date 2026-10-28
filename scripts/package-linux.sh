@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.4.1
+version=0.5.0
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/doc/nx-camera-info-gui" dist/installers
@@ -24,7 +24,7 @@ Package: nx-camera-info-gui
 Version: $version
 Architecture: $arch
 Maintainer: TerminalAddict <TerminalAddict@users.noreply.github.com>
-Depends: libc6 (>= 2.39), libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4, xdg-desktop-portal, xdg-desktop-portal-gtk
+Depends: libc6 (>= 2.39), libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4, xdg-desktop-portal, xdg-desktop-portal-gtk, xterm, sudo
 Section: utils
 Priority: optional
 Homepage: https://github.com/TerminalAddict/nx-camera-info
@@ -45,7 +45,7 @@ License: LicenseRef-Unspecified
 URL: https://github.com/TerminalAddict/nx-camera-info
 BuildArch: $rpmarch
 AutoReqProv: no
-Requires: glibc >= 2.39, gtk4 >= 4.14, webkitgtk6.0, xdg-desktop-portal, xdg-desktop-portal-gtk
+Requires: glibc >= 2.39, gtk4 >= 4.14, webkitgtk6.0, xdg-desktop-portal, xdg-desktop-portal-gtk, xterm, sudo
 %description
 Read-only desktop camera inventory and saved credential recovery.
 %install
