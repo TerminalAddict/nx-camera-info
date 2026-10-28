@@ -496,10 +496,13 @@ class ScriptTests(unittest.TestCase):
 
     def test_csv_multiline_password_and_reordered_headers(self):
         source = self.directory / "accounts.csv"
-        source.write_text('password,name,user\n"line one\nline two",Example,test@example.invalid\n', encoding="utf-8")
-        accounts, invalid = backup.read_accounts(source)
-        self.assertEqual(invalid, 0)
-        self.assertEqual(accounts[0].password, "line one\nline two")
+        for newline in ("\n", "\r\n"):
+            with self.subTest(newline=repr(newline)):
+                content = 'password,name,user\n"line one\nline two",Example,test@example.invalid\n'
+                source.write_bytes(content.replace("\n", newline).encode("utf-8"))
+                accounts, invalid = backup.read_accounts(source)
+                self.assertEqual(invalid, 0)
+                self.assertEqual(accounts[0].password, "line one" + newline + "line two")
 
     def test_invalid_csv_rows_are_skipped_without_printing_contents(self):
         source = self.directory / "accounts.csv"
