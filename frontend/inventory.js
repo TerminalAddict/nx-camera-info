@@ -5,7 +5,7 @@ export const sectionDescriptions = {
   users:'Local, cloud and directory accounts, including inherited groups.',
   system:'Saved server addresses, versions, hardware and system settings.',
   storage:'Recording and backup locations with their stored configuration.',
-  licenses:'Full licence keys, licensed channels and stored activation data.'
+  licenses:'Full licence keys, licensed channels and remaining deactivations.'
 };
 const labels = {
   id:'ID', name:'Name', account:'Account', type:'Type', display_name:'Display name', role:'Role', email:'Email', enabled:'Enabled',
@@ -17,14 +17,19 @@ const labels = {
   stored_space_bytes:'Stored space', space_limit_bytes:'Stored space limit', archive_mode:'Archive mode', status_flags:'Storage status flags',
   key:'Licence key', serial:'Serial', channels:'Licensed channels', class:'Licence class', brand:'Brand', hardware_id:'Hardware ID', expiration:'Expiry field',
   company:'Company', support:'Support', activations_remaining:'Activations remaining', deactivations_remaining:'Deactivations remaining',
+  deactivations_used:'Deactivations used', deactivation_eligible:'Eligible licence type', deactivation_information:'Deactivation information',
   activation_information:'Activation information', fields:'All licence fields', license_block:'Original licence block', group_ids:'Group IDs', groups:'Groups (including inherited)', direct_permissions:'Direct permissions (raw bitmask)'
 };
 function element(tag, text, className) {
   const el = document.createElement(tag); if (text !== undefined) el.textContent = text;
   if (className) el.className = className; return el;
 }
-function valueText(key, value) {
-  if (value === null || value === undefined) return key.endsWith('activations_remaining') ? 'Unavailable from database' : 'Not stored';
+function valueText(key, value, record = {}) {
+  if (value === null || value === undefined) {
+    if (key === 'activations_remaining') return 'Unavailable from database';
+    if (key === 'deactivations_remaining' && record.deactivation_eligible === false) return 'Not applicable';
+    return key.startsWith('deactivation') ? 'Unknown' : 'Not stored';
+  }
   if (value === '') return 'Not set';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (key === 'memory_bytes' || key === 'stored_space_bytes' || key === 'space_limit_bytes') {
@@ -36,7 +41,7 @@ function valueText(key, value) {
 function fields(record, target, omit = []) {
   for (const [key, value] of Object.entries(record)) {
     if (omit.includes(key)) continue;
-    target.append(element('dt', labels[key] || key.replaceAll('_', ' ')), element('dd', valueText(key, value)));
+    target.append(element('dt', labels[key] || key.replaceAll('_', ' ')), element('dd', valueText(key, value, record)));
   }
 }
 function details(title, record) {
@@ -56,7 +61,7 @@ function table(records, columns, title) {
   header.append(element('th', 'Details')); head.append(header); el.append(head, body);
   for (const record of records) {
     const row = element('tr');
-    for (const [key] of columns) row.append(element('td', valueText(key, record[key]), key === 'key' ? 'mono' : ''));
+    for (const [key] of columns) row.append(element('td', valueText(key, record[key], record), key === 'key' ? 'mono' : ''));
     const td = element('td'), button = element('button', 'Details', 'row-details');
     button.setAttribute('aria-label', 'Details for ' + (record.account || record.key || title));
     button.addEventListener('click', () => details(record.account || title, record)); td.append(button); row.append(td); body.append(row);
@@ -81,8 +86,8 @@ export function renderInventory(report, section) {
     panel.append(element('p', `${report.storage.length} storage locations. Space and status values are saved metadata, not live disk usage or recording health.`, 'section-note'));
     if (report.storage.length) panel.append(table(report.storage, [['server_name'], ['path'], ['type'], ['recording_enabled'], ['backup'], ['stored_space_bytes']], 'Storage details'));
   } else if (section === 'licenses') {
-    panel.append(element('p', 'Channel counts are licensed capacity. Remaining activations and deactivations are not stored in this database and require the Nx licensing service.', 'section-note'));
-    if (report.licenses.length) panel.append(table(report.licenses, [['key'], ['class'], ['channels'], ['expiration'], ['activations_remaining'], ['deactivations_remaining']], 'Licence details'));
+    panel.append(element('p', 'Deactivations remaining = 3 minus deactivations used, with a minimum of zero. An absent counter defaults to zero used, matching Nx. Counts reflect the database snapshot and have not been verified online.', 'section-note'));
+    if (report.licenses.length) panel.append(table(report.licenses, [['key'], ['class'], ['channels'], ['expiration'], ['deactivations_used'], ['deactivations_remaining']], 'Licence details'));
     panel.append(element('p', 'Details and exports include every stored licence field and the original licence block. Licence validity has not been checked online.', 'section-note'));
   }
   if (section !== 'system' && !report[section]?.length) panel.append(element('p', 'No records available in this database.', 'section-note'));

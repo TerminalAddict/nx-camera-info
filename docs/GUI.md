@@ -6,7 +6,7 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.4.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.4.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.1). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -37,13 +37,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.4.0-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.4.1-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.4.0-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.4.1-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -52,7 +52,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.4.0-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.4.1-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -71,7 +71,7 @@ The script supports APT, DNF, and Pacman. It installs the application under `/op
 7. Click **Export as…**, choose the full report or one section, then CSV or JSON, and select a destination using the native Save dialog. Full-report CSV uses record/field/value rows; a single section uses one row per record. Camera-only CSV preserves the original spreadsheet layout. The camera section uses the applied filter, virtual-camera setting, and password visibility shown in the export dialog; other sections remain complete. Merely typing a new filter does not change an export until that filter has been applied. Existing files are never overwritten.
 8. **Refresh** rereads every section. Otherwise, navigation, filtering, reveal/hide, and exports all operate on the same loaded snapshot. **Close database** clears the snapshot from the session.
 
-Remaining licence activations and deactivations are shown as **Unavailable from database**. The stored channel count is licensed capacity, not an activation counter. No licence history or validity is checked online, and licence keys are not transmitted. Licence exports include full keys even when camera passwords are hidden. See [report fields and export formats](../README.md#output) for the exact output contract and licensing limitations.
+The **Licences** table shows deactivations used and remaining. Remaining deactivations are calculated as `max(0, 3 - DEACTIVATIONS)`, matching Nx 6.1.2; an absent counter defaults to zero used and three remaining. Counts reflect the database snapshot and are not verified online. NVR and time-limited licences show **Not applicable**; invalid counters or incomplete licence metadata show **Unknown**, with the reason in **Details**. The separate remaining-activations value stays unavailable in Details and exports. Channel counts are licensed capacity, not activation counters. Licence keys are not transmitted, and exports include full keys even when camera passwords are hidden. See [report fields and export formats](../README.md#output) for the exact output contract.
 
 Passwords are masked by default, including URL user information, query strings, and fragments. Revealed exports contain saved credentials: keep them in a private location. Export files use `0600` on Linux/macOS and inherit directory permissions on Windows. CSV values are preserved exactly; use a text-aware spreadsheet import for untrusted device fields.
 
@@ -117,7 +117,7 @@ These are captures of the running GUI with a generated **synthetic** database. C
 
 ![Storage locations and recording configuration](screenshots/gui-storage.png)
 
-![Licence keys and explicitly unavailable activation counters](screenshots/gui-licenses.png)
+![Licence keys with deactivations used and remaining from the database snapshot](screenshots/gui-licenses.png)
 
 ### Windows — WebView2
 

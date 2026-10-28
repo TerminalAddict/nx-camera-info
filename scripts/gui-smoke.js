@@ -62,7 +62,11 @@
     assert($('report-panel').textContent.includes('/mnt/backup/HD Witness Media'),'storage missing');
     await capture('storage');
     await click('nav-licenses');
-    assert($('report-panel').textContent.includes('DEMO-ONLY-0000-0001') && $('report-panel').textContent.includes('Unavailable from database'),'licence keys or unknown activation counts missing');
+    const licenceRows = [...document.querySelectorAll('#report-panel tbody tr')];
+    assert(licenceRows.length === 2 && licenceRows[0].cells[0].textContent === 'DEMO-ONLY-0000-0001','licence keys missing');
+    assert(licenceRows[0].cells[4].textContent === '0' && licenceRows[0].cells[5].textContent === '3','absent deactivation counter must default to three remaining');
+    assert(licenceRows[1].cells[4].textContent === '1' && licenceRows[1].cells[5].textContent === '2','recorded deactivation must leave two remaining');
+    assert($('report-panel').textContent.includes('database snapshot') && !$('report-panel').textContent.includes('Unavailable from database'),'licence snapshot explanation missing or obsolete message shown');
     document.querySelector('#report-panel .row-details').click();
     assert($('details').textContent.includes('DEMO-NOT-A-VALID-LICENCE') && $('details').textContent.includes('DEMO-HARDWARE-ID'),'licence details omitted stored fields');
     $('details-dialog').close(); await capture('licenses');
@@ -84,6 +88,8 @@
     assert(exported.cameras.length===2 && exported.cameras[0].password==='demo-password','revealed JSON incorrect');
     assert(exported.users.length===3 && exported.servers.length===1 && exported.storage.length===3 && exported.licenses.length===2,'JSON omitted new sections');
     assert(exported.licenses[0].activations_remaining===null,'unknown activations must remain null');
+    assert(exported.licenses[0].deactivations_remaining===3 && exported.licenses[1].deactivations_remaining===2 && exported.licenses[1].deactivations_used===1,'JSON lost deactivation counts');
+    assert(exported.licenses.every(l => l.deactivation_information.includes('database snapshot')),'JSON omitted snapshot explanation');
     await click('export'); await click('save-export'); assert(!$('error').hidden&&$('error').textContent.includes('already exists'),'overwrite not refused');
     await click('clear-filter'); await click('virtual'); assert($('rows').children.length===9,'virtual camera toggle failed');
     await click('refresh'); assert($('rows').children.length===9,'refresh lost options');

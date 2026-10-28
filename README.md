@@ -10,7 +10,7 @@ The Wails v3 desktop application provides native Open/Save dialogs and menus, sy
 
 ![NX Camera Info GUI on Linux, showing synthetic camera inventory](docs/screenshots/gui-linux-inventory.png)
 
-Get the installers from [release v0.4.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.0). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
+Get the installers from [release v0.4.1](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.4.1). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
 
 The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout the app, desktop launchers, and installers.
 
@@ -18,12 +18,12 @@ The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout
 
 | System | GUI installer / package |
 | --- | --- |
-| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.4.0-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
-| Linux ARM64 | `nx-camera-info-gui-0.4.0-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
-| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.4.0-windows-amd64-setup.exe` |
-| Windows ARM64 | `nx-camera-info-gui-0.4.0-windows-arm64-setup.exe` |
-| macOS Intel | `nx-camera-info-gui-0.4.0-macos-amd64.pkg` or `.dmg` |
-| macOS Apple Silicon | `nx-camera-info-gui-0.4.0-macos-arm64.pkg` or `.dmg` |
+| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.4.1-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
+| Linux ARM64 | `nx-camera-info-gui-0.4.1-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
+| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.4.1-windows-amd64-setup.exe` |
+| Windows ARM64 | `nx-camera-info-gui-0.4.1-windows-arm64-setup.exe` |
+| macOS Intel | `nx-camera-info-gui-0.4.1-macos-amd64.pkg` or `.dmg` |
+| macOS Apple Silicon | `nx-camera-info-gui-0.4.1-macos-arm64.pkg` or `.dmg` |
 
 Windows installers include Microsoft's full offline WebView2 installer. Linux DEB/RPM packages declare GTK4/WebKitGTK dependencies for the package manager to install; the archive includes a dependency-install script. macOS uses the built-in WebKit framework. These builds are not publisher-signed or Apple-notarized; see the guide for first-launch instructions.
 
@@ -118,7 +118,11 @@ nx-camera-info --db ecs.sqlite --section users --format csv --output users.csv
 - **Storage:** every storage row, its server, path, type, recording/backup flags, stored space and space-limit values in bytes, archive mode, status flags and selected storage properties. These are saved values, not live free space, recording health or a guarantee of archive retention.
 - **Licences:** full keys, serials, channel counts, class, version, brand, hardware ID, expiry field, company/support fields, all other licence-block fields and the original block. Blank expiry is reported as not set, not a verified validity result. Keys are included without needing `--show-passwords`.
 
-**Remaining licence activations/deactivations are not stored in this database.** Both fields are JSON `null`, empty CSV values and explicitly unavailable in the GUI/table, with an explanation in `activation_information`. Licensed channels (`COUNT`) must not be used as remaining activations. The app does not send licence keys to a remote service. Nx provides activation/deactivation history through its [licensing portal](https://www.networkoptix.com/my/license-portal), which requires appropriate access.
+**Remaining licence deactivations follow Nx 6.1.2's calculation:** `max(0, 3 - DEACTIVATIONS)`. The stored `DEACTIVATIONS` value counts deactivations already used; when absent, Nx defaults to zero used and three remaining. The report includes `deactivations_used`, `deactivations_remaining`, `deactivation_eligible` (based on licence type/expiry), and `deactivation_information`. For example, `DEACTIVATIONS=1` produces two remaining, regardless of licensed channel count. These values reflect the database snapshot and are not verified online. This matches the published Nx [calculation and eligibility rules](https://github.com/networkoptix/nx_open/blob/vms_6.1.2/vms/libs/nx_vms_common/src/licensing/license.cpp) and [defaults](https://github.com/networkoptix/nx_open/blob/vms_6.1.2/vms/libs/nx_vms_common/src/licensing/license.h).
+
+NVR and time-limited licences show **Not applicable** for remaining deactivations. Invalid counters or missing class/expiry fields show **Unknown**, with an explanation. These remaining values are JSON `null` and empty CSV cells; the information field explains why. A count does not establish licence validity or guarantee that the licensing service will permit a deactivation.
+
+**Remaining activations are a separate, unavailable value:** `activations_remaining` remains JSON `null` or an empty CSV cell, with an explanation in `activation_information`. Licensed channels (`COUNT`) are capacity, not remaining activations. The app does not send licence keys to a remote service.
 
 The camera table shows name, host, username, password, vendor, model, assigned server, and credential recovery status. JSON and CSV also contain:
 

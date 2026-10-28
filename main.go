@@ -18,7 +18,7 @@ import (
 	"unicode"
 )
 
-const version = "0.4.0"
+const version = "0.4.1"
 
 func defaultDatabasePath() string {
 	if runtime.GOOS == "linux" {
@@ -68,7 +68,9 @@ Reports include cameras, users, system/server details, storage and full licence 
 All-section CSV uses record_type, record_id, field, value rows. Select
 --section cameras for the original camera spreadsheet, or another section for
 a spreadsheet with one row per record. JSON includes full details and summary.
-Remaining licence activations/deactivations are unavailable from the database.
+Remaining deactivations follow Nx's calculation: max(0, 3 - deactivations used).
+An absent counter defaults to zero used. Counts reflect the database snapshot;
+no online verification is performed. Remaining activations are unavailable.
 Without --show-passwords, passwords and URL userinfo/query/fragment are masked.
 
 Reads the database without changing its contents. Does not contact cameras or

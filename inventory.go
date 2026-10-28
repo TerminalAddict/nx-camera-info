@@ -13,7 +13,11 @@ import (
 	"time"
 )
 
-const activationAvailability = "Unavailable from database; requires Nx licensing service"
+const activationAvailability = "Remaining activations are unavailable from the database; licensed channels are capacity, not an activation counter"
+
+// Nx 6.1.2 QnLicense::deactivationsCountLeft uses a maximum of three.
+// An omitted DEACTIVATIONS field defaults to zero deactivations used.
+const maximumLicenseDeactivations int64 = 3
 
 type SystemInfo struct {
 	Name              string            `json:"name"`
@@ -82,23 +86,26 @@ type StorageInfo struct {
 }
 
 type LicenseInfo struct {
-	ID                     string            `json:"id"`
-	Key                    string            `json:"key"`
-	Serial                 string            `json:"serial"`
-	Name                   string            `json:"name"`
-	Channels               *int64            `json:"channels"`
-	Class                  string            `json:"class"`
-	Version                string            `json:"version"`
-	Brand                  string            `json:"brand"`
-	HardwareID             string            `json:"hardware_id"`
-	Expiration             string            `json:"expiration"`
-	Company                string            `json:"company"`
-	Support                string            `json:"support"`
-	ActivationsRemaining   *int64            `json:"activations_remaining"`
-	DeactivationsRemaining *int64            `json:"deactivations_remaining"`
-	ActivationInformation  string            `json:"activation_information"`
-	Fields                 map[string]string `json:"fields"`
-	LicenseBlock           string            `json:"license_block"`
+	ID                      string            `json:"id"`
+	Key                     string            `json:"key"`
+	Serial                  string            `json:"serial"`
+	Name                    string            `json:"name"`
+	Channels                *int64            `json:"channels"`
+	Class                   string            `json:"class"`
+	Version                 string            `json:"version"`
+	Brand                   string            `json:"brand"`
+	HardwareID              string            `json:"hardware_id"`
+	Expiration              string            `json:"expiration"`
+	Company                 string            `json:"company"`
+	Support                 string            `json:"support"`
+	ActivationsRemaining    *int64            `json:"activations_remaining"`
+	DeactivationsUsed       *int64            `json:"deactivations_used"`
+	DeactivationsRemaining  *int64            `json:"deactivations_remaining"`
+	DeactivationEligible    *bool             `json:"deactivation_eligible"`
+	DeactivationInformation string            `json:"deactivation_information"`
+	ActivationInformation   string            `json:"activation_information"`
+	Fields                  map[string]string `json:"fields"`
+	LicenseBlock            string            `json:"license_block"`
 }
 
 // These properties are selected explicitly. Never export server auth keys,
@@ -464,7 +471,9 @@ func readInventory(ctx context.Context, tx *sql.Tx, report *Report) error {
 		if key == "" {
 			key = fields["SERIAL"]
 		}
-		report.Licenses = append(report.Licenses, LicenseInfo{ID: storedString(r["id"]), Key: key, Serial: fields["SERIAL"], Name: fields["NAME"], Channels: storedInt(fields["COUNT"]), Class: fields["CLASS"], Version: fields["VERSION"], Brand: fields["BRAND"], HardwareID: fields["HWID"], Expiration: fields["EXPIRATION"], Company: fields["COMPANY"], Support: fields["SUPPORT"], Fields: fields, LicenseBlock: block, ActivationInformation: activationAvailability})
+		license := LicenseInfo{ID: storedString(r["id"]), Key: key, Serial: fields["SERIAL"], Name: fields["NAME"], Channels: storedInt(fields["COUNT"]), Class: fields["CLASS"], Version: fields["VERSION"], Brand: fields["BRAND"], HardwareID: fields["HWID"], Expiration: fields["EXPIRATION"], Company: fields["COMPANY"], Support: fields["SUPPORT"], Fields: fields, LicenseBlock: block, ActivationInformation: activationAvailability}
+		license.calculateDeactivations()
+		report.Licenses = append(report.Licenses, license)
 	}
 	sort.Slice(report.Licenses, func(i, j int) bool { return report.Licenses[i].Key < report.Licenses[j].Key })
 	report.Summary.Users = len(report.Users)
@@ -472,6 +481,37 @@ func readInventory(ctx context.Context, tx *sql.Tx, report *Report) error {
 	report.Summary.StorageLocations = len(report.Storage)
 	report.Summary.Licenses = len(report.Licenses)
 	return nil
+}
+
+func (l *LicenseInfo) calculateDeactivations() {
+	used := int64(0)
+	raw, present := l.Fields["DEACTIVATIONS"]
+	if present {
+		var err error
+		used, err = strconv.ParseInt(strings.TrimSpace(raw), 10, 32)
+		if err != nil || used < 0 {
+			l.DeactivationInformation = "Unknown: invalid DEACTIVATIONS value in the database snapshot; not verified online"
+			return
+		}
+	}
+	l.DeactivationsUsed = &used
+	expiration, hasExpiration := l.Fields["EXPIRATION"]
+	if l.Class == "" || !hasExpiration {
+		l.DeactivationInformation = "Unknown: licence class or expiry field is missing from the database snapshot; not verified online"
+		return
+	}
+	eligible := l.Class != "nvr" && strings.TrimSpace(expiration) == ""
+	l.DeactivationEligible = &eligible
+	if !eligible {
+		l.DeactivationInformation = "Not applicable: Nx does not allow deactivation of NVR or time-limited licences; licence validity has not been verified online"
+		return
+	}
+	remaining := max(int64(0), maximumLicenseDeactivations-used)
+	l.DeactivationsRemaining = &remaining
+	l.DeactivationInformation = "Calculated from the database snapshot as max(0, 3 - deactivations used); not verified online"
+	if !present {
+		l.DeactivationInformation += ". DEACTIVATIONS is absent; Nx defaults to zero used"
+	}
 }
 
 func readInventoryProperties(ctx context.Context, tx *sql.Tx) (map[string]map[string]string, error) {

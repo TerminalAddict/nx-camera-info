@@ -59,7 +59,7 @@ UPDATE vms_server SET auth_key='SERVER_KEY_MUST_NOT_EXPORT';`)
 		t.Fatalf("storage: %+v", r.Storage)
 	}
 	l := r.Licenses[0]
-	if l.Key != "DEMO-ONLY-0000-0001" || l.Channels == nil || *l.Channels != 8 || l.ActivationsRemaining != nil || l.DeactivationsRemaining != nil || l.Fields["SIGNATURE2"] != "DEMO-NOT-A-VALID-LICENCE" || !strings.Contains(l.LicenseBlock, "COUNT=8") {
+	if l.Key != "DEMO-ONLY-0000-0001" || l.Channels == nil || *l.Channels != 8 || l.ActivationsRemaining != nil || l.DeactivationsRemaining == nil || *l.DeactivationsRemaining != 3 || l.Fields["SIGNATURE2"] != "DEMO-NOT-A-VALID-LICENCE" || !strings.Contains(l.LicenseBlock, "COUNT=8") {
 		t.Fatalf("licence: %+v", l)
 	}
 	for _, format := range []string{"json", "csv", "table"} {
@@ -79,6 +79,133 @@ UPDATE vms_server SET auth_key='SERVER_KEY_MUST_NOT_EXPORT';`)
 	after, _ := os.ReadFile(path)
 	if sha256.Sum256(before) != sha256.Sum256(after) {
 		t.Fatal("database changed")
+	}
+}
+
+func TestLicenseDeactivations(t *testing.T) {
+	for _, tc := range []struct {
+		name, class, expiry, counter string
+		used, remaining              string
+		eligible, explanation        string
+	}{
+		{"absent defaults to zero", "digital", "", "absent", "0", "3", "true", "defaults to zero"},
+		{"explicit zero", "starter", "", "0", "0", "3", "true", "Calculated"},
+		{"one used edge", "edge", "", "1", "1", "2", "true", "Calculated"},
+		{"one used starter", "starter", "", "1", "1", "2", "true", "Calculated"},
+		{"one used digital", "digital", "", "1", "1", "2", "true", "Calculated"},
+		{"two used", "digital", "", "2", "2", "1", "true", "Calculated"},
+		{"exhausted", "digital", "", "3", "3", "0", "true", "Calculated"},
+		{"above maximum", "digital", "", "4", "4", "0", "true", "Calculated"},
+		{"whitespace", "digital", "", " 1 ", "1", "2", "true", "Calculated"},
+		{"invalid counter", "digital", "", "broken", "", "", "", "invalid"},
+		{"negative counter", "digital", "", "-1", "", "", "", "invalid"},
+		{"empty counter", "digital", "", "", "", "", "", "invalid"},
+		{"overflow counter", "digital", "", "2147483648", "", "", "", "invalid"},
+		{"NVR ineligible", "nvr", "", "1", "1", "", "false", "Not applicable"},
+		{"time limited", "digital", "2099-01-01", "1", "1", "", "false", "Not applicable"},
+		{"missing class", "", "", "1", "1", "", "", "missing"},
+		{"missing expiry", "digital", "absent", "1", "1", "", "", "missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path, db := inventoryFixture(t)
+			block := "CLASS=" + tc.class + "\nCOUNT=99\n"
+			if tc.expiry != "absent" {
+				block += "EXPIRATION=" + tc.expiry + "\n"
+			}
+			if tc.counter != "absent" {
+				block += "DEACTIVATIONS=" + tc.counter + "\n"
+			}
+			if _, err := db.Exec("UPDATE vms_license SET license_block=? WHERE id=1", block); err != nil {
+				t.Fatal(err)
+			}
+			r, err := readReport(context.Background(), Options{DB: path})
+			if err != nil {
+				t.Fatal(err)
+			}
+			l := r.Licenses[0]
+			data, err := record("licenses", l.ID, l)
+			if err != nil {
+				t.Fatal(err)
+			}
+			values := map[string]string{}
+			for i, key := range data.fields {
+				values[key] = data.values[i]
+			}
+			if values["deactivations_used"] != tc.used || values["deactivations_remaining"] != tc.remaining || values["deactivation_eligible"] != tc.eligible || l.ActivationsRemaining != nil || !strings.Contains(l.DeactivationInformation, tc.explanation) || !strings.Contains(l.DeactivationInformation, "online") {
+				t.Fatalf("unexpected deactivation report: %+v", values)
+			}
+		})
+	}
+}
+
+func TestLicenseDeactivationExports(t *testing.T) {
+	path, _ := inventoryFixture(t)
+	var session cameraSession
+	if _, err := session.open(path); err != nil {
+		t.Fatal(err)
+	}
+	for _, section := range []string{"licenses", "all"} {
+		for _, format := range []string{"json", "csv", "table"} {
+			var out, stderr bytes.Buffer
+			if code := run([]string{"--db", path, "--section", section, "--format", format}, &out, &stderr); code != 0 {
+				t.Fatalf("%s %s: %d %s", section, format, code, stderr.String())
+			}
+			data := out.Bytes()
+			if format != "table" {
+				file := filepath.Join(t.TempDir(), "export."+format)
+				if _, err := session.export(file, format, ViewOptions{Section: section}); err != nil {
+					t.Fatal(err)
+				}
+				guiData, err := os.ReadFile(file)
+				if err != nil || !bytes.Equal(data, guiData) {
+					t.Fatalf("GUI and CLI %s %s exports disagree: %v", section, format, err)
+				}
+			}
+			switch format {
+			case "json":
+				var r Report
+				if err := json.Unmarshal(data, &r); err != nil {
+					t.Fatal(err)
+				}
+				if len(r.Licenses) != 2 || r.Licenses[0].DeactivationsRemaining == nil || *r.Licenses[0].DeactivationsRemaining != 3 || r.Licenses[1].DeactivationsRemaining == nil || *r.Licenses[1].DeactivationsRemaining != 2 {
+					t.Fatal("JSON lost remaining deactivation counts")
+				}
+			case "csv":
+				rows, err := csv.NewReader(bytes.NewReader(data)).ReadAll()
+				if err != nil {
+					t.Fatal(err)
+				}
+				remaining := []string{}
+				if section == "all" {
+					for _, row := range rows[1:] {
+						if row[0] == "licenses" && row[2] == "deactivations_remaining" {
+							remaining = append(remaining, row[3])
+						}
+					}
+				} else {
+					for i, field := range rows[0] {
+						if field == "deactivations_remaining" {
+							for _, row := range rows[1:] {
+								remaining = append(remaining, row[i])
+							}
+						}
+					}
+				}
+				if strings.Join(remaining, ",") != "3,2" {
+					t.Fatalf("CSV remaining counts: %v", remaining)
+				}
+			case "table":
+				remaining := []string{}
+				for _, line := range strings.Split(string(data), "\n") {
+					if strings.HasPrefix(line, "deactivations remaining ") {
+						remaining = append(remaining, strings.TrimSpace(strings.TrimPrefix(line, "deactivations remaining")))
+					}
+				}
+				if strings.Join(remaining, ",") != "3,2" {
+					t.Fatalf("table remaining counts: %v", remaining)
+				}
+			}
+		}
 	}
 }
 

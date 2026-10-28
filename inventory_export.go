@@ -218,10 +218,22 @@ func renderInventoryTable(w io.Writer, r Report, section string) error {
 			continue
 		}
 		t := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+		deactivationEligible := ""
+		for i, field := range item.fields {
+			if field == "deactivation_eligible" {
+				deactivationEligible = item.values[i]
+			}
+		}
 		for i, field := range item.fields {
 			value := item.values[i]
-			if (field == "activations_remaining" || field == "deactivations_remaining") && value == "" {
+			if field == "activations_remaining" && value == "" {
 				value = "Unavailable from database"
+			}
+			if strings.HasPrefix(field, "deactivation") && value == "" {
+				value = "Unknown"
+				if field == "deactivations_remaining" && deactivationEligible == "false" {
+					value = "Not applicable"
+				}
 			}
 			if strings.HasSuffix(field, "_bytes") && value != "" {
 				if n := storedInt(value); n != nil && *n >= 0 {
