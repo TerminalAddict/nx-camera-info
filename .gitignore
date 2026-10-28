@@ -6,3 +6,5 @@ dist/
 /nx-camera-info
 camera-export*
 *.syso
+# Local camera exports/captures can contain credentials and customer data.
+/tmp/
