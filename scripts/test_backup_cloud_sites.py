@@ -75,6 +75,9 @@ class ScriptTests(unittest.TestCase):
             self.assertEqual(body["grant_type"], "password")
             self.assertEqual(body["password"], PASSWORD)
             self.assertEqual(body["client_id"], "3rdParty")
+            if "cloudSystemId=" in body["scope"] and not body["scope"].endswith("=*") and " " in body["scope"]:
+                return Response({"error": "invalid_request", "error_description":
+                                 "Access scope with system Ids must not contain anything else"}, 400)
             return Response({"access_token": TOKEN, "refresh_token": "synthetic-refresh"})
         if req.method == "DELETE":
             self.assertTrue(req.full_url.startswith(backup.CLOUD + "/cdb/oauth2/token/"))
@@ -126,13 +129,103 @@ class ScriptTests(unittest.TestCase):
         cloud, opener = self.make_cloud(self.tokens)
         session = cloud.login(OWNED)
         self.assertEqual(json.loads(opener.calls[0].data)["scope"],
-                         backup.CLOUD + " cloudSystemId=" + OWNED)
+                         backup.CLOUD + " cloudSystemId=*")
+        self.assertEqual(json.loads(opener.calls[1].data)["scope"], "cloudSystemId=" + OWNED)
         cloud.logout(session)
-        self.assertEqual([req.method for req in opener.calls], ["POST", "DELETE", "DELETE"])
-        self.assertTrue(opener.calls[1].full_url.endswith("synthetic-refresh"))
-        self.assertTrue(opener.calls[2].full_url.endswith(TOKEN))
+        self.assertEqual([req.method for req in opener.calls], ["POST", "POST", "DELETE", "DELETE"])
+        self.assertTrue(opener.calls[2].full_url.endswith("synthetic-refresh"))
+        self.assertTrue(opener.calls[3].full_url.endswith(TOKEN))
+        self.assertEqual(cloud.sessions, [session.manager])
+        cloud.close()
         self.assertEqual(cloud.sessions, [])
         self.assert_no_secrets_logged()
+
+    def test_backup_enforces_nx_scope_contract_and_cloud_managed_revocation(self):
+        active = set()
+        revoked = []
+        manager = TOKEN + "-cloud"
+        site_token = TOKEN + "-site"
+
+        def handler(req):
+            if req.method == "POST":
+                scope = json.loads(req.data)["scope"]
+                if scope == backup.CLOUD + " cloudSystemId=*":
+                    token = manager
+                elif scope == "cloudSystemId=" + OWNED:
+                    token = site_token
+                else:
+                    return Response({"error": "invalid_request", "error_description":
+                                     "Access scope with system Ids must not contain anything else"}, 400)
+                active.update((token, "refresh-" + token))
+                return Response({"access_token": token, "refresh_token": "refresh-" + token})
+            bearer = req.get_header("Authorization").removeprefix("Bearer ")
+            if req.method == "DELETE":
+                if bearer != manager or manager not in active:
+                    return Response({"error": "forbidden"}, 403)
+                token = parse.unquote(parse.urlsplit(req.full_url).path.rsplit("/", 1)[1])
+                active.remove(token)
+                revoked.append(token)
+                return Response(status=204)
+            if bearer != site_token:
+                return Response({"errorId": "unauthorized"}, 401)
+            return Response(self.database)
+
+        cloud, opener = self.make_cloud(handler)
+        destination = self.directory / "Site.db"
+        backup.download_site(cloud, backup.Site(OWNED, "Site"), destination)
+        self.assertEqual(destination.read_bytes(), self.database)
+        self.assertEqual(active, {manager, "refresh-" + manager})
+        cloud.close()
+        self.assertEqual(active, set())
+        self.assertEqual(revoked, ["refresh-" + site_token, site_token, "refresh-" + manager, manager])
+        self.assertNotIn("revocation could not be confirmed", self.log.getvalue())
+        for req in opener.calls:
+            if req.method == "POST":
+                self.assertEqual(json.loads(req.data)["grant_type"], "password")
+
+    def test_site_mfa_uses_cloud_bearer_to_confirm_site_token(self):
+        manager = TOKEN + "-cloud"
+        site_token = TOKEN + "-site"
+        confirmed = []
+        def handler(req):
+            if req.method == "POST":
+                if json.loads(req.data)["scope"] == backup.CLOUD + " cloudSystemId=*":
+                    return Response({"access_token": manager})
+                return Response({"access_token": site_token, "error": "secondFactorRequired"}, 403)
+            if "/totp/key/" in req.full_url:
+                confirmed.append(parse.parse_qs(parse.urlsplit(req.full_url).query)["token"][0])
+            self.assertEqual(req.get_header("Authorization"), "Bearer " + manager)
+            return Response(status=204)
+        cloud, opener = self.make_cloud(handler)
+        session = cloud.login(OWNED)
+        self.assertEqual(session.access, site_token)
+        self.assertEqual(confirmed, [site_token])
+        # close() also handles an active child that wasn't logged out separately.
+        cloud.close()
+        self.assertEqual(cloud.sessions, [])
+        self.assertTrue(opener.calls[-2].full_url.endswith(site_token))
+        self.assertTrue(opener.calls[-1].full_url.endswith(manager))
+
+    def test_token_and_backup_errors_identify_the_operation(self):
+        for failure in ("token", "backup"):
+            with self.subTest(failure=failure):
+                def handler(req):
+                    if req.method == "POST" and failure == "token" and json.loads(req.data)["scope"].startswith("cloudSystemId="):
+                        return Response({"error": "invalid_request", "error_description":
+                                         "Access scope with system Ids must not contain anything else"}, 400)
+                    auth = self.tokens(req)
+                    if auth is not None:
+                        return auth
+                    return Response({"errorId": "invalidParameter", "errorString": PASSWORD + TOKEN}, 400)
+                cloud, _ = self.make_cloud(handler)
+                with self.assertRaises(backup.ApiError) as raised:
+                    backup.download_site(cloud, backup.Site(OWNED, "Site"), self.directory / "Site.db")
+                message = str(raised.exception)
+                self.assertIn("Site token request" if failure == "token" else "Backup GET /rest/v4/site/database", message)
+                self.assertIn("HTTP 400", message)
+                self.assertNotIn(PASSWORD, message)
+                self.assertNotIn(TOKEN, message)
+                cloud.close()
 
     def test_mfa_confirmation_on_login_and_retry_invalid_code(self):
         confirmations = []
@@ -388,6 +481,9 @@ class ScriptTests(unittest.TestCase):
                         backup.download_site(cloud, backup.Site(OWNED, "Site"), destination)
                     self.assertFalse(destination.exists())
                     self.assertFalse(any("/rest/v3/" in req.full_url for req in opener.calls))
+                self.assertEqual(len(cloud.sessions), 1)  # Cloud manager remains until account logout.
+                self.assertIsNone(cloud.sessions[0].manager)
+                cloud.close()
                 self.assertEqual(cloud.sessions, [])
 
     def test_site_mfa_and_fresh_auth_retry(self):
@@ -411,7 +507,7 @@ class ScriptTests(unittest.TestCase):
                 self.assertEqual(destination.read_bytes(), self.database)
                 self.assertEqual(attempts, 2)
                 self.assertEqual(sum(req.method == "POST" for req in opener.calls),
-                                 2 if code == "userPasswordRequired" else 1)
+                                 3 if code == "userPasswordRequired" else 2)
 
     def test_denied_shared_and_offline_sites_do_not_stop_owned_backup(self):
         def handler(req):
@@ -431,7 +527,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("1 saved, 0 existing files skipped, 2 failed", self.log.getvalue())
         self.assertIn("Permission denied", self.log.getvalue())
         self.assertIn("offline", self.log.getvalue())
-        self.assertEqual(sum(req.method == "POST" for req in opener.calls), 3)
+        self.assertEqual(sum(req.method == "POST" for req in opener.calls), 4)
         self.assert_no_secrets_logged()
 
     def test_existing_backup_is_skipped_without_network_access(self):

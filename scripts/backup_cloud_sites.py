@@ -55,6 +55,16 @@ class BackupError(Exception):
     """An error whose message is safe to display (no server bodies or tokens)."""
 
 
+@contextmanager
+def operation(label):
+    """Add a fixed operation label without exposing URLs, tokens or server bodies."""
+    try:
+        yield
+    except BackupError as exc:
+        exc.args = (f"{label}: {exc}",)
+        raise
+
+
 def error_code(data):
     if not isinstance(data, dict):
         return ""
@@ -78,6 +88,9 @@ class ApiError(BackupError):
             message = "Nx has blocked this account; check its status in the cloud portal."
         elif self.code in ("accountnotactivated", "account_not_activated"):
             message = "This Nx Cloud account has not been activated."
+        elif self.code == "invalid_request" and isinstance(data, dict) and data.get(
+                "error_description") == "Access scope with system Ids must not contain anything else":
+            message = f"Invalid site-token scope (HTTP {status}); Nx requires site-only access."
         elif status == 401:
             message = "Authentication rejected (HTTP 401); check login and site access."
         elif status == 403:
@@ -206,6 +219,7 @@ def read_json(response, limit):
 class Session:
     access: str
     refresh: str = ""
+    manager: Session | None = None
 
 
 class Cloud:
@@ -217,13 +231,22 @@ class Cloud:
         self.sessions = []
 
     def login(self, site_id=None):
-        # Include the cloud scope for MFA confirmation and revoking this session.
-        # Each site's token is freshly password-authenticated, not just refreshed.
+        # Nx rejects a specific cloudSystemId combined with a cloud URL scope.
+        # Keep a separate cloud session for discovery, MFA and token revocation.
+        # Each site token is freshly password-authenticated, not just refreshed.
+        manager = None
+        if site_id is not None:
+            manager = next((session for session in reversed(self.sessions)
+                            if session.manager is None), None)
+            if manager is None:
+                manager = self.login()
         body = {"grant_type": "password", "response_type": "token",
                 "client_id": "3rdParty", "username": self.email,
                 "password": self.password,
-                "scope": CLOUD + " cloudSystemId=" + (site_id or "*")}
-        with self.http.open(CLOUD + "/cdb/oauth2/token", method="POST", body=body) as response:
+                "scope": "cloudSystemId=" + site_id if site_id is not None else CLOUD + " cloudSystemId=*"}
+        label = "Site token request" if site_id is not None else "Cloud login"
+        with operation(label), self.http.open(
+                CLOUD + "/cdb/oauth2/token", method="POST", body=body) as response:
             data = read_json(response, JSON_LIMIT)
             code = error_code(data)
             if not isinstance(data, dict) or not isinstance(data.get("access_token"), str):
@@ -234,7 +257,7 @@ class Cloud:
             refresh = data.get("refresh_token", "")
             if not isinstance(refresh, str) or any(not 33 <= ord(c) <= 126 for c in refresh):
                 raise BackupError("Nx returned an invalid refresh token.")
-            session = Session(access, refresh)
+            session = Session(access, refresh, manager)
             self.sessions.append(session)
             if code in MFA_CODES:
                 self.confirm_mfa(session)
@@ -253,7 +276,8 @@ class Cloud:
             url = CLOUD + "/cdb/account/self/2fa/totp/key/" + code
             url += "?" + parse.urlencode({"token": session.access})
             try:
-                with self.http.open(url, token=session.access) as response:
+                authorizer = session.manager or session
+                with self.http.open(url, token=authorizer.access) as response:
                     if not 200 <= response.status < 300:
                         raise ApiError(response.status, read_json(response, JSON_LIMIT))
                     # This endpoint may return 200 with an empty body.
@@ -308,7 +332,8 @@ class Cloud:
                 continue
             try:
                 url = CLOUD + "/cdb/oauth2/token/" + parse.quote(token, safe="")
-                with self.http.open(url, method="DELETE", token=session.access,
+                authorizer = session.manager or session
+                with self.http.open(url, method="DELETE", token=authorizer.access,
                                     timeout=min(self.http.timeout, 10)) as response:
                     if response.status not in (200, 204, 404):
                         failed = True
@@ -320,7 +345,8 @@ class Cloud:
             print("Warning: Nx session revocation could not be confirmed; no tokens were saved.")
 
     def close(self):
-        for session in list(self.sessions):
+        # Site tokens depend on the cloud token for revocation: children first.
+        for session in reversed(list(self.sessions)):
             self.logout(session)
         self.password = ""
 
@@ -470,8 +496,9 @@ def download_site(cloud, site, destination):
         for path in BACKUP_PATHS:
             for attempt in range(2):
                 url = f"https://{site.id}.relay.vmsproxy.com" + path
-                with cloud.http.open(url, token=session.access, site_id=site.id,
-                                     accept="application/octet-stream") as response:
+                with operation(f"Backup GET {path}"), cloud.http.open(
+                        url, token=session.access, site_id=site.id,
+                        accept="application/octet-stream") as response:
                     if response.status in (404, 405, 501):
                         break  # Only an unavailable API triggers version fallback.
                     if response.status != 200:
@@ -631,7 +658,6 @@ def run_accounts(accounts, invalid_rows, directory, http):
             try:
                 session = cloud.login()
                 sites = cloud.discover(session)
-                cloud.logout(session)
                 if not sites:
                     print("No sites were returned for this account.")
                 else:
@@ -706,7 +732,6 @@ def main(argv=None):
         print("Signing in to nxvms.com...", flush=True)
         session = cloud.login()
         sites = cloud.discover(session)
-        cloud.logout(session)
         if not sites:
             print("No sites were returned by the owned, shared or organisation lists.")
             return 0
