@@ -64,6 +64,83 @@ chmod +x ./nx-camera-info-macos-arm64
 
 Use `nx-camera-info-macos-amd64` instead on an Intel Mac. On Windows and macOS, the default database is `ecs.sqlite` in the current directory; use `--db` to select another file. A consistent database backup copied from your Nx server can be read on either system.
 
+## Back up Nx Cloud sites
+
+[scripts/backup_cloud_sites.py](scripts/backup_cloud_sites.py) is a standalone Python script for downloading site configuration backups through **nxvms.com**. Supply a CSV of separate cloud accounts, or log into one account interactively. Run it once or whenever you want new backups. It requires **Python 3.10 or newer**, with no third-party packages or `pip install` step. It works independently of the GUI and compiled CLI. Direct server URLs are not needed: each account's sites are discovered through Nx Cloud and reached through its HTTPS relay.
+
+**Permission limit:** your cloud account needs backup administrator/owner rights on each site. **Power User access on a shared site does not grant database-backup permission.** The script checks shared sites too, reports refused requests, and continues with other sites. It cannot elevate your permissions and does not ask for local administrator credentials. Arrange backups for those sites separately with their owners or an authorised administrator.
+
+For multiple cloud accounts, copy [scripts/cloud-accounts.example.csv](scripts/cloud-accounts.example.csv) to **`tmp/cloud-accounts.csv`**, then replace the dummy entries in that copy. Keep real credentials in the ignored `tmp/` directory, not in the example file. Use this header:
+
+```csv
+name,user,password
+Example Warehouse,warehouse@example.invalid,DUMMY-password-change-me-1
+Example Office,office@example.invalid,DUMMY-password-change-me-2
+```
+
+`name` labels the account in progress/error messages; `user` is its **Nx Cloud email**; `password` is that cloud account's password. The script discovers every accessible site for each account, including owned, shared and organisation-provided sites. Filenames use the **site name returned by Nx Cloud**, which can differ from the CSV label; an account may have several sites.
+
+Save the CSV as UTF-8 (a UTF-8 BOM is also accepted). Header case and surrounding header spaces are ignored. Account names and emails are trimmed; **passwords are preserved exactly**, including leading/trailing spaces. Do not pad password values with spaces for alignment. Quote a field containing a comma, newline or double quote, doubling any embedded quotes; the example file includes a password containing a comma. Blank data rows are ignored.
+
+From the repository directory on Windows, run this in PowerShell:
+
+```powershell
+py -3 scripts/backup_cloud_sites.py --accounts-csv tmp/cloud-accounts.csv
+```
+
+On Linux or macOS:
+
+```sh
+python3 scripts/backup_cloud_sites.py --accounts-csv tmp/cloud-accounts.csv
+```
+
+**CSV mode runs without prompts.** It creates a new dated output folder under `NX Camera Backups` in your home directory unless `--output-dir` is supplied. It signs into each cloud account, downloads permitted backups, revokes that account's sessions, then continues to the next row. Passwords and tokens are not printed or copied into reports. No two-factor code is needed for accounts without 2FA; if Nx unexpectedly requires one, that account/site is reported as failed rather than pausing the batch. Interactive mode remains available for such accounts.
+
+Invalid individual rows are reported by line number and skipped. Bad passwords, cloud login failures, discovery errors, denied backup requests and unavailable sites do not stop later accounts. A malformed header, invalid UTF-8 or broken CSV quoting stops the run **before any account login**, because the file cannot be reliably parsed. Successfully downloaded sites are deduplicated by cloud site ID across all accounts. If one account cannot back up a site, another account that can access it gets its own attempt; a later success resolves that site's earlier failure in the final summary.
+
+For a single interactive account, omit `--accounts-csv`:
+
+```sh
+python3 scripts/backup_cloud_sites.py
+```
+
+Use `py -3` instead of `python3` on Windows. Interactive mode prompts for:
+
+1. **Backup directory.** Press Enter to create a new dated folder under `NX Camera Backups` in your home directory. This keeps successive runs separate and places backups outside the repository by default.
+2. **Nx Cloud email and password.** Password input is hidden. Credentials and tokens stay in memory for this run; they are not saved in a configuration file or printed.
+3. **Authenticator code**, when Nx requires two-factor authentication. The code is hidden too. Fresh authentication is obtained for each site, so Nx may require another code during a run.
+
+For each account, it explicitly queries the default/owned list, directly shared sites, and organisation-provided sites, then deduplicates them by cloud site ID. If a discovery request fails, that account is marked failed rather than claiming an incomplete list contains all its sites; CSV mode continues with the next account. The server's response to the backup request is the authoritative permission check; a cloud role label alone is not used to exclude a site.
+
+Successful downloads use the site name, for example `Warehouse.db`. Characters invalid in Windows filenames are replaced. Filename collisions receive a site-ID suffix, including when different accounts discover distinct sites with the same name. **Existing files are never overwritten**, including when you explicitly reuse an output directory; they are reported as skipped. Completed backups survive a later account/site failure or cancellation.
+
+To choose a directory on the command line or allow more time for slow sites:
+
+```powershell
+py -3 scripts/backup_cloud_sites.py --accounts-csv tmp/cloud-accounts.csv --output-dir "C:\Camera backups\October" --timeout 300
+```
+
+```sh
+python3 scripts/backup_cloud_sites.py --accounts-csv tmp/cloud-accounts.csv --output-dir "$HOME/Camera backups/October" --timeout 300
+python3 scripts/backup_cloud_sites.py --help
+```
+
+`--timeout` is the network inactivity timeout in seconds (default `120`), not a limit on the whole run. The script tries the current `/rest/v4/site/database` endpoint, then earlier `/rest/v3`, `/rest/v2`, `/rest/v1` system/database endpoints and `/ec2/dumpDatabase` only when an endpoint is unavailable. Permission denials do not trigger attempts to bypass the restriction. No restore, site configuration change, or video download is performed. Login sessions are revoked on normal exit where possible; a failed revocation produces a warning.
+
+There is one configuration backup per **site**, covering its servers, cameras, users, rules and other site settings; recorded video requires a separate backup. Raw binary dumps and JSON/base64 database responses are accepted. SQLite downloads receive a read-only integrity check and can then be opened in NX Camera Info if their schema is supported. Other Nx binary formats are retained as `.db` backups and explicitly reported as unverified for SQLite compatibility. Empty/truncated transfers, HTML error pages and invalid database payloads are rejected. The download limit is 512 MiB; JSON/base64 responses have a 128 MiB decoding limit.
+
+Backups can contain camera credentials, user password hashes and server authentication keys. Use a private destination. Files use mode `0600` on Linux/macOS; Windows files inherit the destination directory's access permissions. TLS verification stays enabled, and bearer tokens follow only recognised HTTPS relay redirects for the same site. Incomplete downloads are removed on handled failures/cancellation; a forced termination may leave a hidden `.nx-backup-*.partial` file. Both `.db` files and these partial downloads are ignored by Git.
+
+Exit codes: `0` all discovered sites saved, or no sites found; `1` setup/CSV parsing failure or interactive login/discovery failure; `2` at least one CSV account/row failed, a site remained unbacked-up, or an existing file was skipped; `130` cancelled with Ctrl+C or end of input. A site discovered again after a successful backup is skipped without causing an error. The final summary reports unique saved/skipped/failed sites and, in CSV mode, account failures and invalid rows. Earlier failed download attempts remain visible even if another account successfully backs up the site later.
+
+Offline tests use synthetic databases and simulated cloud/server responses, including CSV quoting/validation, account failures, retries and deduplication across accounts, owned/shared discovery, denied Power User access, authentication, redirects and download failures:
+
+```sh
+python3 -B -m unittest discover -s scripts -p test_backup_cloud_sites.py -v
+```
+
+These tests do not authenticate to real accounts. Live compatibility with your sites still needs testing. API references: [Nx Cloud API](https://nxvms.com/cdb/docs/api/v1/swagger/index.html), [cloud OAuth scopes](https://support.networkoptix.com/hc/en-us/articles/32896214893079-OAuth-API-specification), [database backup API](https://support.networkoptix.com/hc/en-us/articles/32895784410775-Back-up-and-restore-a-system-database-with-the-REST-API), and [Nx's confirmation of cloud-relay backup support](https://support.networkoptix.com/hc/en-us/community/posts/40819265345815-Cloud-Auth-Bearer-token-getting-Auth-MissingCredentials-on-database-backup-endpoint-even-for-Owner?sort_by=votes).
+
 ## Run
 
 From this directory:

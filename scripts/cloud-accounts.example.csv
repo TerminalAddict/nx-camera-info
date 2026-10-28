@@ -1,0 +1,4 @@
+name,user,password
+Example Warehouse,warehouse@example.invalid,DUMMY-password-change-me-1
+Example Office,office@example.invalid,DUMMY-password-change-me-2
+"Example Store, North",north@example.invalid,"DUMMY-password-with,comma"

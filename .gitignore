@@ -8,3 +8,5 @@ camera-export*
 *.syso
 # Local camera exports/captures can contain credentials and customer data.
 /tmp/
+# Incomplete cloud database downloads can also contain credentials.
+.nx-backup-*.partial
