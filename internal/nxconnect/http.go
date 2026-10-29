@@ -210,7 +210,9 @@ func (c *Client) request(ctx context.Context, method, address, token string, bod
 	}
 	client := &http.Client{Transport: c.Transport, Timeout: 5 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	for hop := 0; hop < 6; hop++ {
-		req, err := http.NewRequestWithContext(ctx, method, address, bytes.NewReader(data))
+		// Transport may still read/close the request body after Do returns on
+		// cancellation. Give it an immutable copy before clearing our buffer.
+		req, err := http.NewRequestWithContext(ctx, method, address, strings.NewReader(string(data)))
 		if err != nil {
 			return nil, errors.New("could not prepare Nx request")
 		}
