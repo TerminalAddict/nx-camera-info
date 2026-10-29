@@ -1,6 +1,7 @@
 package nxconnect
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -142,8 +143,9 @@ func (c *Cloud) Sites(ctx context.Context) ([]Site, error) {
 	sites := map[string]Site{}
 	for i, query := range []string{"", "?directlyShared=true", "?directlyShared=false"} {
 		var rows []Site
+		var raw json.RawMessage
 		for attempt := 0; attempt < 2; attempt++ {
-			err := c.client.json(ctx, "GET", CloudURL+"/cdb/systems"+query, c.primary.access, nil, "", "List cloud sites", &rows)
+			err := c.client.json(ctx, "GET", CloudURL+"/cdb/systems"+query, c.primary.access, nil, "", "List cloud sites", &raw)
 			var apiErr *APIError
 			if errors.As(err, &apiErr) && apiErr.MFA() && attempt == 0 {
 				if err = c.confirm(ctx, c.primary); err != nil {
@@ -156,10 +158,13 @@ func (c *Cloud) Sites(ctx context.Context) ([]Site, error) {
 			}
 			break
 		}
+		var err error
+		rows, err = parseSites(raw)
+		clear(raw)
+		if err != nil {
+			return nil, err
+		}
 		for _, site := range rows {
-			if !ValidSiteID(site.ID) {
-				return nil, errors.New("Nx returned an invalid site ID; the site list is incomplete")
-			}
 			if _, exists := sites[site.ID]; exists {
 				continue
 			}
@@ -176,6 +181,39 @@ func (c *Cloud) Sites(ctx context.Context) ([]Site, error) {
 	}
 	sort.Slice(list, func(i, j int) bool { return strings.ToLower(list[i].Name) < strings.ToLower(list[j].Name) })
 	return list, nil
+}
+
+// Cloud DB currently wraps the list in {"systems": [...]}; older API
+// descriptions and some deployments return a bare array or a reply wrapper.
+func parseSites(raw json.RawMessage) ([]Site, error) {
+	for depth := 0; depth < 8; depth++ {
+		raw = bytes.TrimSpace(raw)
+		var rows []Site
+		if len(raw) > 0 && raw[0] == '[' && json.Unmarshal(raw, &rows) == nil {
+			for _, site := range rows {
+				if !ValidSiteID(site.ID) {
+					return nil, errors.New("Nx returned an invalid site ID; the site list is incomplete")
+				}
+			}
+			return rows, nil
+		}
+		var wrapped map[string]json.RawMessage
+		if json.Unmarshal(raw, &wrapped) != nil {
+			break
+		}
+		var next json.RawMessage
+		for _, key := range []string{"systems", "sites", "reply"} {
+			if value, ok := wrapped[key]; ok {
+				next = value
+				break
+			}
+		}
+		if len(next) == 0 {
+			break
+		}
+		raw = next
+	}
+	return nil, errors.New("Nx returned an unrecognised site list; discovery is incomplete")
 }
 func (c *Cloud) Download(ctx context.Context, siteID, address string, local *Client, progress Progress) ([]byte, error) {
 	if c.primary == nil {

@@ -18,7 +18,7 @@ import (
 
 func backup() []byte { return append([]byte("SQLite format 3\x00"), make([]byte, 100)...) }
 func TestCloudDiscoveryDownloadMFAFreshAndCleanup(t *testing.T) {
-	for _, mode := range []string{"normal", "mfa", "fresh"} {
+	for _, mode := range []string{"normal", "bare-list", "mfa", "fresh"} {
 		t.Run(mode, func(t *testing.T) {
 			fixture := nxfixture.New(backup())
 			fixture.Mode(mode)

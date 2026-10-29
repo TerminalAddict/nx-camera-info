@@ -31,10 +31,10 @@ func TestLiveCloudMemoryBackup(t *testing.T) {
 	}
 	var email, password string
 	for i, key := range header {
-		switch strings.TrimSpace(strings.TrimPrefix(key, "\ufeff")) {
+		switch strings.ToLower(strings.TrimSpace(strings.TrimPrefix(key, "\ufeff"))) {
 		case "user":
 			email = row[i]
-		case "password":
+		case "password", "pass":
 			password = row[i]
 		}
 	}

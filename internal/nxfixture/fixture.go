@@ -91,11 +91,11 @@ func (f *Fixture) RoundTrip(r *http.Request) (*http.Response, error) {
 		owned := nxconnect.Site{ID: SiteID, Name: "Demo campus", Version: "6.1.2.42921"}
 		switch r.URL.Query().Get("directlyShared") {
 		case "true":
-			return response(200, []nxconnect.Site{owned, {ID: SharedID, Name: "Shared warehouse", Version: "6.1.2.42921"}}), nil
+			return f.siteResponse([]nxconnect.Site{owned, {ID: SharedID, Name: "Shared warehouse", Version: "6.1.2.42921"}}), nil
 		case "false":
-			return response(200, []nxconnect.Site{{ID: OrgID, Name: "Organisation office", Version: "6.1.2.42921"}}), nil
+			return f.siteResponse([]nxconnect.Site{{ID: OrgID, Name: "Organisation office", Version: "6.1.2.42921"}}), nil
 		}
-		return response(200, []nxconnect.Site{owned}), nil
+		return f.siteResponse([]nxconnect.Site{owned}), nil
 	}
 	if strings.HasPrefix(path, "/cdb/oauth2/token/") && r.Method == "DELETE" {
 		if !strings.HasPrefix(auth, "cloud-") {
@@ -146,6 +146,13 @@ func (f *Fixture) RoundTrip(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/octet-stream"}}, Body: io.NopCloser(bytes.NewReader(data)), ContentLength: int64(len(data))}, nil
 	}
 	return response(404, map[string]string{"error": "notFound"}), nil
+}
+
+func (f *Fixture) siteResponse(sites []nxconnect.Site) *http.Response {
+	if f.mode == "bare-list" {
+		return response(200, sites)
+	}
+	return response(200, map[string]any{"systems": sites})
 }
 
 type slowBody struct{ ctx context.Context }
