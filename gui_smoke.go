@@ -5,12 +5,15 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +25,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"nx-camera-info/internal/demodb"
+	"nx-camera-info/internal/nxconnect"
+	"nx-camera-info/internal/nxfixture"
 	"nx-camera-info/internal/updates"
 )
 
@@ -42,6 +47,8 @@ type GUIHarness struct {
 	service         *DesktopService
 	installLaunches int
 	stagedInstaller string
+	nx              *nxfixture.Fixture
+	nxServer        *httptest.Server
 }
 
 func (h *GUIHarness) HoldActivity(hold bool) {
@@ -52,8 +59,14 @@ func (h *GUIHarness) HoldActivity(hold bool) {
 	}
 }
 
-func (h *GUIHarness) Select(mode string) { h.mu.Lock(); defer h.mu.Unlock(); h.mode = mode }
-func (h *GUIHarness) selected() string   { h.mu.Lock(); defer h.mu.Unlock(); return h.mode }
+func (h *GUIHarness) Select(mode string)         { h.mu.Lock(); defer h.mu.Unlock(); h.mode = mode }
+func (h *GUIHarness) ConnectionMode(mode string) { h.nx.Mode(mode) }
+func (h *GUIHarness) ConnectionEvidence() map[string]any {
+	h.service.session.mu.Lock()
+	defer h.service.session.mu.Unlock()
+	return map[string]any{"calls": h.nx.Calls(), "backupBytes": len(h.service.session.backup)}
+}
+func (h *GUIHarness) selected() string { h.mu.Lock(); defer h.mu.Unlock(); return h.mode }
 func (h *GUIHarness) UpdateEvidence() map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -65,7 +78,7 @@ func (h *GUIHarness) ReadExport(format string) (string, error) {
 	return string(b), e
 }
 func (h *GUIHarness) Capture(name string) error {
-	if name != "inventory" && name != "export" && name != "filtered" && name != "about" && name != "update" && name != "install-update" && name != "users" && name != "servers" && name != "storage" && name != "licenses" {
+	if name != "inventory" && name != "export" && name != "filtered" && name != "about" && name != "update" && name != "install-update" && name != "users" && name != "servers" && name != "storage" && name != "licenses" && name != "open-database" && name != "nearby" && name != "cloud-sites" && name != "certificate" {
 		return fmt.Errorf("invalid capture")
 	}
 	path := filepath.Join(h.dir, name+".png")
@@ -108,6 +121,24 @@ func init() {
 		path := filepath.Join(h.dir, "Demo campus.sqlite")
 		if err := demodb.Create(path); err != nil {
 			panic(err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			panic(err)
+		}
+		h.nx = nxfixture.New(data)
+		h.nxServer = httptest.NewTLSServer(h.nx)
+		// Synthetic cloud/server endpoints are routed only to this in-process
+		// fixture. This transport is compiled exclusively into guismoke builds.
+		fixtureTransport := http.DefaultTransport.(*http.Transport).Clone()
+		fixtureTransport.Proxy = nil
+		fixtureTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // test fixture only; local pinning still runs
+		fixtureTransport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, h.nxServer.Listener.Addr().String())
+		}
+		service.connections.client = &nxconnect.Client{Transport: fixtureTransport}
+		service.connections.discover = func(ctx context.Context) ([]nxconnect.Server, error) {
+			return []nxconnect.Server{{Name: "Demo server", SystemName: "Demo campus", Address: "https://192.0.2.10:7001", Version: "6.1.2.42921", CloudSystemID: nxfixture.SiteID}}, nil
 		}
 		if err := os.WriteFile(filepath.Join(h.dir, "invalid.sqlite"), []byte("not a database"), 0600); err != nil {
 			panic(err)
@@ -170,6 +201,9 @@ func init() {
 		go func() { time.Sleep(120 * time.Second); fmt.Fprintln(os.Stderr, "GUI smoke test timed out"); os.Exit(1) }()
 	}
 	guiAfterRun = func() {
+		if h.nxServer != nil {
+			h.nxServer.Close()
+		}
 		if !h.passed {
 			os.Exit(1)
 		}

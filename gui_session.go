@@ -16,6 +16,16 @@ type cameraSession struct {
 	path     string
 	snapshot Report
 	loadedAt string
+	backup   []byte
+	source   DatabaseSource
+}
+
+type DatabaseSource struct {
+	Kind    string `json:"kind"`
+	Address string `json:"address,omitempty"`
+	SiteID  string `json:"siteId,omitempty"`
+	Auth    string `json:"auth,omitempty"`
+	Route   string `json:"route,omitempty"`
 }
 
 type ViewOptions struct {
@@ -26,10 +36,11 @@ type ViewOptions struct {
 }
 
 type CameraView struct {
-	Filename string      `json:"filename"`
-	LoadedAt string      `json:"loadedAt"`
-	Report   Report      `json:"report"`
-	Options  ViewOptions `json:"options"`
+	Filename string         `json:"filename"`
+	LoadedAt string         `json:"loadedAt"`
+	Report   Report         `json:"report"`
+	Options  ViewOptions    `json:"options"`
+	Source   DatabaseSource `json:"source"`
 }
 
 func (s *cameraSession) open(path string) (CameraView, error) {
@@ -45,6 +56,8 @@ func (s *cameraSession) load(path string, options ViewOptions) (CameraView, erro
 	if err != nil {
 		return CameraView{}, err
 	}
+	clear(s.backup)
+	s.backup, s.source = nil, DatabaseSource{Kind: "file"}
 	s.path, s.snapshot, s.loadedAt = path, report, time.Now().Format(time.RFC3339)
 	return s.filtered(options), nil
 }
@@ -55,7 +68,41 @@ func (s *cameraSession) refresh(options ViewOptions) (CameraView, error) {
 	if s.path == "" {
 		return CameraView{}, errors.New("open a database first")
 	}
+	if s.source.Kind == "server" {
+		return CameraView{}, errors.New("sign in again to refresh from the server")
+	}
 	return s.load(s.path, options)
+}
+
+// Takes ownership of data only after successful validation. Cancellation leaves
+// the previous report intact. CloseDatabase cancels downloads before clearing.
+func (s *cameraSession) openBackup(ctx context.Context, data []byte, name string, source DatabaseSource) error {
+	report, err := readMemoryReport(ctx, data)
+	if err != nil {
+		return err
+	}
+	return s.installBackup(ctx, data, name, source, report)
+}
+
+func (s *cameraSession) installBackup(ctx context.Context, data []byte, name string, source DatabaseSource, report Report) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	clear(s.backup)
+	s.path, s.snapshot, s.loadedAt = name, report, time.Now().Format(time.RFC3339)
+	s.backup, s.source = data, source
+	return nil
+}
+
+func (s *cameraSession) saveBackup(path string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.backup) == 0 {
+		return errors.New("open a server backup first")
+	}
+	return writeNewFile(path, s.backup)
 }
 
 func (s *cameraSession) view(options ViewOptions) (CameraView, error) {
@@ -109,13 +156,15 @@ func (s *cameraSession) filtered(options ViewOptions) CameraView {
 		}
 	}
 	r.Summary.Matched = len(r.Cameras)
-	return CameraView{Filename: filepath.Base(s.path), LoadedAt: s.loadedAt, Report: r, Options: options}
+	return CameraView{Filename: filepath.Base(s.path), LoadedAt: s.loadedAt, Report: r, Options: options, Source: s.source}
 }
 
 func (s *cameraSession) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.path, s.snapshot, s.loadedAt = "", Report{}, ""
+	clear(s.backup)
+	s.backup, s.source = nil, DatabaseSource{}
 }
 
 func (s *cameraSession) export(path, format string, options ViewOptions) (int, error) {

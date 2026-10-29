@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 arch="$(go env GOARCH)"
-version=0.5.0
+version=0.6.0
 stage="$(mktemp -d)"
 cleanup() {
   hdiutil detach "$stage/mount" -quiet >/dev/null 2>&1 || true
@@ -31,6 +31,7 @@ cat > "$app/Contents/Info.plist" <<EOF
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSLocalNetworkUsageDescription</key><string>Find nearby Nx Witness servers and download a database backup when you choose to connect.</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>
 EOF

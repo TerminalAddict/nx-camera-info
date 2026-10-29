@@ -34,6 +34,7 @@ type DesktopService struct {
 	activity     sync.RWMutex
 	closing      bool
 	session      cameraSession
+	connections  *connectionManager
 	chooseOpen   func() (string, error)
 	chooseSave   func(string) (string, error)
 	chooseUpdate func(string) (string, error)
@@ -133,6 +134,37 @@ func (d *DesktopService) OpenDatabase() (*CameraView, error) {
 	return &view, err
 }
 
+func (d *DesktopService) ConnectionStart(req ConnectionRequest) error {
+	if err := d.beginActivity(); err != nil {
+		return err
+	}
+	if err := d.connections.Start(req, d.activity.RUnlock); err != nil {
+		d.activity.RUnlock()
+		return err
+	}
+	return nil
+}
+func (d *DesktopService) ConnectionState() ConnectionState     { return d.connections.State() }
+func (d *DesktopService) ConnectionAnswer(answer string) error { return d.connections.Answer(answer) }
+func (d *DesktopService) ConnectionCancel()                    { d.connections.Cancel() }
+func (d *DesktopService) SaveBackup() (string, error) {
+	if err := d.beginActivity(); err != nil {
+		return "", err
+	}
+	defer d.activity.RUnlock()
+	path, err := d.chooseSave("db")
+	if err != nil || path == "" {
+		return "", err
+	}
+	if filepath.Ext(path) == "" {
+		path += ".db"
+	}
+	if err = d.session.saveBackup(path); err != nil {
+		return "", err
+	}
+	return filepath.Base(path), nil
+}
+
 func (d *DesktopService) View(options ViewOptions) (CameraView, error) {
 	return d.session.view(options)
 }
@@ -143,7 +175,12 @@ func (d *DesktopService) Refresh(options ViewOptions) (CameraView, error) {
 	defer d.activity.RUnlock()
 	return d.session.refresh(options)
 }
-func (d *DesktopService) CloseDatabase() { d.session.close() }
+func (d *DesktopService) CloseDatabase() {
+	if d.connections != nil {
+		d.connections.Cancel()
+	}
+	d.session.close()
+}
 
 type ExportResult struct {
 	Filename string `json:"filename"`
@@ -185,14 +222,18 @@ func main() {
 		log.Fatal(err)
 	}
 	service := &DesktopService{updater: updates.New(version, runtime.GOOS, runtime.GOARCH, preferredInstaller(), nil)}
+	service.connections = newConnectionManager(&service.session)
+	defer service.connections.Shutdown()
+	defer service.session.close()
 	services := append([]application.Service{application.NewService(service)}, guiExtraServices...)
 	app := application.New(application.Options{
 		Name: "NX Camera Info", Description: "Camera inventory and saved credentials • " + version,
-		Icon:     desktopIcon,
-		Services: services,
-		Assets:   application.AssetOptions{Handler: application.BundledAssetFileServer(assets)},
-		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
-		Linux:    application.LinuxOptions{ApplicationID: "com.loudas.nx-camera-info", ProgramName: "nx-camera-info"},
+		Icon:       desktopIcon,
+		Services:   services,
+		Assets:     application.AssetOptions{Handler: application.BundledAssetFileServer(assets)},
+		Mac:        application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		Linux:      application.LinuxOptions{ApplicationID: "com.loudas.nx-camera-info", ProgramName: "nx-camera-info"},
+		OnShutdown: func() { service.connections.Shutdown(); service.session.close() },
 	})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "NX Camera Info", Width: 1240, Height: 800, MinWidth: 860, MinHeight: 580,
@@ -213,11 +254,15 @@ func main() {
 	})
 	service.chooseOpen = func() (string, error) {
 		return app.Dialog.OpenFile().AttachToWindow(window).SetTitle("Open Nx Witness database").
-			AddFilter("SQLite databases", "*.sqlite;*.sqlite3;*.db").AddFilter("All files", "*").PromptForSingleSelection()
+			AddFilter("Nx databases and backups", "*.sqlite;*.sqlite3;*.db;*.backup").AddFilter("All files", "*").PromptForSingleSelection()
 	}
 	service.chooseSave = func(format string) (string, error) {
+		prefix := "camera-export-"
+		if format == "db" {
+			prefix = "nx-site-backup-"
+		}
 		return app.Dialog.SaveFile().AttachToWindow(window).
-			SetFilename("camera-export-"+time.Now().Format("20060102-150405")+"."+format).
+			SetFilename(prefix+time.Now().Format("20060102-150405")+"."+format).
 			AddFilter(strings.ToUpper(format)+" file", "*."+format).PromptForSingleSelection()
 	}
 	service.chooseUpdate = func(name string) (string, error) {

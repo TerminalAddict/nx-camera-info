@@ -20,8 +20,8 @@
       <button id="nav-storage" class="nav-item" data-section="storage">Storage</button>
       <button id="nav-licenses" class="nav-item" data-section="licenses">Licences</button>
     </nav>
-    <div class="source"><div class="nav-label">OPEN DATABASE</div><strong id="filename">No database selected</strong><p id="loaded-at">Open a database to begin.</p><button id="close" class="quiet" disabled>Close database</button></div>
-    <div class="sidebar-bottom"><span class="dot"></span> Local &amp; read only<p>Your database stays on this computer.</p><button id="about-open" class="sidebar-about">About &amp; updates <span aria-hidden="true">↗</span></button><small id="version"></small></div>
+    <div class="source"><div class="nav-label">OPEN DATABASE</div><strong id="filename">No database selected</strong><p id="loaded-at">Open a database to begin.</p><p id="source-route"></p><button id="save-backup" class="quiet" hidden>Save backup as…</button><button id="close" class="quiet" disabled>Close database</button></div>
+    <div class="sidebar-bottom"><span class="dot"></span> Read-only snapshots<p>Open a file or download a temporary server backup.</p><button id="about-open" class="sidebar-about">About &amp; updates <span aria-hidden="true">↗</span></button><small id="version"></small></div>
   </aside>
   <main>
     <header><div><div class="eyebrow">NX WITNESS</div><h1 id="page-title">Camera inventory</h1><p id="page-description">Explore devices and recover saved camera credentials.</p></div><button id="open" class="primary"><span aria-hidden="true">＋</span> Open database…</button></header>
@@ -36,13 +36,52 @@
     <section class="inventory" aria-label="Camera inventory">
       <div class="toolbar"><form id="filter-form"><label class="sr-only" for="filter">Filter cameras</label><input id="filter" type="search" placeholder="Filter by name, IP, vendor, model, or server…" disabled><button id="apply-filter" disabled>Filter</button><button id="clear-filter" type="button" class="quiet" disabled>Clear</button></form><div class="actions"><button id="reveal" aria-pressed="false" disabled>Reveal passwords</button><button id="export" disabled>Export as…</button></div></div>
       <div class="view-options"><label><input id="virtual" type="checkbox" disabled> Include virtual cameras</label><span id="visibility" class="badge">Passwords hidden</span><button id="refresh" class="quiet" disabled>↻ Refresh</button></div>
-      <div id="empty" class="empty"><img src="icon.svg" width="64" height="64" alt=""><h2>Your camera inventory, in one place.</h2><p>Choose an Nx Witness <code>ecs.sqlite</code> database or a consistent backup.<br>Browse cameras, reveal saved passwords, and export what you need.</p><button id="open-empty" class="primary">Browse for database…</button><small>The original database is opened read only.</small></div>
+      <div id="empty" class="empty"><img src="icon.svg" width="64" height="64" alt=""><h2>Your camera inventory, in one place.</h2><p>Open a database file, find a nearby Nx Witness server,<br>or sign in to Nx Cloud to download a temporary backup.</p><button id="open-empty" class="primary">Open database…</button><small>Explore a read-only snapshot. Server backups stay in memory until closed.</small></div>
       <div id="table-wrap" class="table-wrap" hidden><table><thead><tr><th><button data-sort="name">Camera ↕</button></th><th><button data-sort="host">Address ↕</button></th><th>Username</th><th>Password</th><th><button data-sort="vendor">Vendor / model ↕</button></th><th><button data-sort="server_name">Server ↕</button></th><th>Credentials</th><th><span class="sr-only">Details</span></th></tr></thead><tbody id="rows"></tbody></table><p id="no-results" hidden>No cameras match this filter. Try another name, address, or vendor.</p></div>
       <div id="report-panel" class="report-panel" hidden></div>
       <footer><span id="table-status">Ready to open a database</span><span id="snapshot-status">No network connections to cameras</span></footer>
     </section>
     <p class="footnote" id="report-footnote">Saved values describe this database snapshot. Connectivity, recording and licence activation status are not checked.</p>
   </main>
+  <dialog id="open-dialog" aria-labelledby="open-title">
+    <div class="open-heading"><img src="icon.svg" width="40" height="40" alt=""><div><h2 id="open-title">Open database</h2><p>A local file or a fresh snapshot from your Nx site.</p></div></div>
+    <div class="open-tabs" role="tablist" aria-label="Database source">
+      <button id="open-tab-file" role="tab" aria-selected="true" aria-controls="open-panel-file" data-open-tab="file">Local file</button>
+      <button id="open-tab-server" role="tab" aria-selected="false" aria-controls="open-panel-server" data-open-tab="server">Nearby server</button>
+      <button id="open-tab-cloud" role="tab" aria-selected="false" aria-controls="open-panel-cloud" data-open-tab="cloud">Nx Cloud</button>
+    </div>
+    <section id="open-panel-file" role="tabpanel" aria-labelledby="open-tab-file">
+      <div class="file-choice"><h3>Open a database or backup</h3><p>Choose an Nx Witness SQLite database or a supported <code>.db</code> / <code>.backup</code> file.</p><button id="open-local-file" class="primary">Browse files…</button><p class="subtle">The original file is opened read only.</p></div>
+    </section>
+    <section id="open-panel-server" role="tabpanel" aria-labelledby="open-tab-server" hidden>
+      <div class="discovery-heading"><div><strong>Servers on your network</strong><p>Discover nearby servers or enter an address below.</p></div><button id="discover-servers">Find servers</button></div>
+      <div id="nearby-servers" class="server-list" aria-label="Discovered servers"><p class="subtle">Discovery takes up to 12 seconds. Manual entry also works across routed networks.</p></div>
+      <form id="server-form" class="connection-form" autocomplete="off">
+        <label class="wide">Server address<input id="server-address" type="text" placeholder="192.168.1.100:7001 or server.example" required spellcheck="false"></label>
+        <label class="wide">Sign in with<select id="server-auth"><option value="local">Local account</option><option value="cloud">Nx Cloud account</option></select></label>
+        <label><span id="server-username-label">Username</span><input id="server-username" type="text" required autocomplete="off" spellcheck="false"></label>
+        <label>Password<input id="server-password" type="password" required autocomplete="off"></label>
+        <p id="server-auth-hint" class="subtle wide">Use an account with permission to create site backups.</p>
+        <button id="server-connect" class="primary wide" type="submit">Connect and open</button>
+      </form>
+    </section>
+    <section id="open-panel-cloud" role="tabpanel" aria-labelledby="open-tab-cloud" hidden>
+      <p>Sign in to see your own sites and sites shared with you. Remote sites connect through Nx Cloud.</p>
+      <form id="cloud-form" class="connection-form" autocomplete="off">
+        <label>Nx Cloud email<input id="cloud-email" type="email" required autocomplete="off" spellcheck="false"></label>
+        <label>Password<input id="cloud-password" type="password" required autocomplete="off"></label>
+        <button id="cloud-signin" class="primary wide" type="submit">Sign in to Nx Cloud</button>
+      </form>
+      <div id="cloud-sites-panel" hidden><div class="discovery-heading"><strong>Your cloud sites</strong><button id="cloud-switch" class="quiet">Switch account</button></div><label for="cloud-site-filter" class="sr-only">Filter sites</label><input id="cloud-site-filter" type="search" placeholder="Filter sites by name…"><div id="cloud-sites" class="server-list" aria-label="Accessible cloud sites"></div><p class="subtle">Shared sites are included. Backup permission is checked by the server when you open a site.</p></div>
+    </section>
+    <div id="connection-progress" hidden><p id="connection-status" role="status" aria-live="polite"></p><progress id="connection-meter" aria-label="Backup download progress"></progress><small id="connection-bytes"></small></div>
+    <div id="connection-error" role="alert" hidden></div>
+    <section id="certificate-prompt" class="connection-prompt" hidden><h3>Verify server certificate</h3><p>The certificate is self-signed or could not be verified. Compare its SHA-256 fingerprint with the server's certificate before trusting it.</p><dl id="certificate-details"></dl><button id="trust-certificate" class="primary">Trust for this connection</button></section>
+    <form id="mfa-form" class="connection-prompt" hidden><label for="mfa-code">Authenticator code</label><input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required><button id="submit-mfa" class="primary">Verify code</button></form>
+    <section id="relay-prompt" class="connection-prompt" hidden><button id="use-relay" class="primary">Retry through Nx Cloud</button></section>
+    <p class="subtle connection-privacy">Server backups stay in memory. Credentials are used for this connection and are not saved.</p>
+    <div class="dialog-actions"><button id="connection-cancel">Cancel</button></div>
+  </dialog>
   <dialog id="export-dialog" aria-labelledby="export-title"><form method="dialog"><h2 id="export-title">Export database report</h2><label for="export-section">Include</label><select id="export-section"><option value="all">Full report — all sections</option value="cameras">Cameras in the current view</option><option value="users">Users</option><option value="system">System</option><option value="servers">Servers</option><option value="storage">Storage</option><option value="licenses">Licences</option></select><p id="export-scope"></p><fieldset><legend>File format</legend><label class="format-option"><input type="radio" name="format" value="csv" checked><span><strong>CSV spreadsheet</strong><small>Full report: record / field / value. Single section: one row per record.</small></span></label><label class="format-option"><input type="radio" name="format" value="json"><span><strong>JSON document</strong><small>Full details and summary for scripts</small></span></label></fieldset><p id="export-privacy" class="export-privacy"></p><p class="subtle">Existing files are preserved. Choose a new filename.</p><div class="dialog-actions"><button value="cancel">Cancel</button><button id="save-export" type="button" class="primary">Choose destination…</button></div></form></dialog>
   <dialog id="details-dialog" aria-labelledby="details-title"><h2 id="details-title">Camera details</h2><p id="details-subtitle"></p><dl id="details"></dl><form method="dialog" class="dialog-actions"><button autofocus>Close</button></form></dialog>
   <button id="updates-open" hidden aria-hidden="true" tabindex="-1">Check for updates</button>

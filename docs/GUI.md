@@ -6,7 +6,7 @@ The CCTV camera and information badge appear in the app, desktop icons and insta
 
 ## Install
 
-Download the package for your operating system and processor from [v0.5.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.5.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
+Download the package for your operating system and processor from [v0.6.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.6.0). `amd64` means Intel/AMD 64-bit; `arm64` means Windows/Linux ARM64 or Apple Silicon. Check downloads against `SHA256SUMS`.
 
 ### Windows 10/11
 
@@ -37,13 +37,13 @@ Use a graphical desktop on Ubuntu 24.04+, Debian 13+, Fedora 40+, or a compatibl
 For Ubuntu/Debian, install the DEB with APT so missing dependencies are resolved:
 
 ```sh
-sudo apt install ./nx-camera-info-gui-0.5.0-linux-amd64.deb
+sudo apt install ./nx-camera-info-gui-0.6.0-linux-amd64.deb
 ```
 
 For Fedora, install the RPM with DNF:
 
 ```sh
-sudo dnf install ./nx-camera-info-gui-0.5.0-linux-amd64.rpm
+sudo dnf install ./nx-camera-info-gui-0.6.0-linux-amd64.rpm
 ```
 
 Replace `amd64` with `arm64` when appropriate. These packages declare GTK4, WebKitGTK 6.0, and desktop portal dependencies. **Installing missing Linux dependencies requires internet access to your distribution repositories.** System libraries are not bundled into the DEB/RPM; the package manager maintains their updates.
@@ -52,7 +52,7 @@ For the archive, extract into its own directory:
 
 ```sh
 mkdir nx-camera-info-gui
-tar -xzf nx-camera-info-gui-0.5.0-linux-amd64.tar.gz -C nx-camera-info-gui
+tar -xzf nx-camera-info-gui-0.6.0-linux-amd64.tar.gz -C nx-camera-info-gui
 cd nx-camera-info-gui
 ./install.sh
 nx-camera-info-gui
@@ -62,14 +62,42 @@ The script supports APT, DNF, and Pacman. It installs the application under `/op
 
 ## Use
 
-1. Click **Open database…** and select an Nx Witness `ecs.sqlite` database or a consistent backup. The operating system's file chooser is used. Canceling leaves the current database open; an invalid file displays an error without discarding the previous view.
+1. Click **Open database…**. Use **Local file → Browse files…** for an Nx Witness `ecs.sqlite` database or a supported `.db` / `.backup` file. **Nearby server** and **Nx Cloud** can obtain a fresh backup directly; see below. Canceling leaves the current database open; an invalid file or failed connection preserves the previous view.
 2. Enter a name, address, vendor, model, UUID, MAC address, group, logical ID, or server in **Filter** and press Enter or click **Filter**. **Clear** removes the filter. Click column headings to sort the displayed table.
 3. Click **Reveal passwords** to display recovered credentials and complete URLs; **Hide passwords** masks them again. Opening another database always starts masked. No credentials are written to application preferences or a browser store.
 4. Click a row's **›** button or double-click the row to inspect device metadata, URLs, credential source, and decode errors.
 5. Select **Include virtual cameras** to include desktop camera records. The summary counts reflect the current view.
 6. Use the sidebar to switch between **Camera inventory**, **Users**, **System & servers**, **Storage**, and **Licences**. Users show account, type, display name, inherited role, email and enabled status. Server cards show addresses, versions, OS and hardware. Storage and licence **Details** buttons expose all stored report fields, including full licence keys and original licence blocks; system/server cards have **All details** buttons.
 7. Click **Export as…**, choose the full report or one section, then CSV or JSON, and select a destination using the native Save dialog. Full-report CSV uses record/field/value rows; a single section uses one row per record. Camera-only CSV preserves the original spreadsheet layout. The camera section uses the applied filter, virtual-camera setting, and password visibility shown in the export dialog; other sections remain complete. Merely typing a new filter does not change an export until that filter has been applied. Existing files are never overwritten.
-8. **Refresh** rereads every section. Otherwise, navigation, filtering, reveal/hide, and exports all operate on the same loaded snapshot. **Close database** clears the snapshot from the session.
+8. **Refresh** rereads a local file. For a server snapshot, **Refresh from server…** opens the connection dialog with its source selected and requests a new sign-in. Navigation, filtering, reveal/hide, and exports operate on the same loaded snapshot. **Close database** cancels pending connections and clears the snapshot. **Save backup as…** explicitly saves a downloaded backup using the native Save dialog; existing files are preserved.
+
+## Server and cloud connections
+
+The connection dialog is available in every GUI build. It uses Go directly; Python, an installed Nx client and additional discovery services are not required. The CLI continues to read local database files, and the separate Python script remains available for batch cloud backups.
+
+### Nearby server or manual address
+
+Select **Nearby server → Find servers** to search for up to 12 seconds. The app listens for Nx announcements on multicast `239.255.11.11:5008` and sends the legacy discovery probe on UDP 5007, on active IPv4 multicast interfaces. Results show the site, server, address and Nx version. Advertisements are hints: the app verifies the HTTPS server information again before login. Discovery requires local-network permission and multicast connectivity. If it is blocked, the server has discovery disabled, or the server is on another subnet, enter its IP/hostname and port manually. The default is HTTPS port 7001; custom ports and bracketed IPv6 addresses are supported.
+
+Choose **Local account** or **Nx Cloud account**, enter credentials, and click **Connect and open**. Local credentials go to the selected server. Cloud credentials go only to `nxvms.com`; the app uses the server's verified cloud site ID to request a separate site token for the direct server connection. Cloud sign-in requires internet access even on a LAN. This release supports Nx Witness accounts at `nxvms.com`; other OEM cloud providers are not supported.
+
+For a self-signed or otherwise untrusted server certificate, compare the displayed SHA-256 fingerprint with the server certificate, then select **Trust for this connection**. Trust applies only to that address and exact certificate during this operation. A changed certificate is rejected. Cloud service certificates always require normal system trust. Credentials and bearer tokens are not forwarded to arbitrary redirect destinations. If a direct cloud-authenticated backup encounters a connection failure, the dialog offers a retry through the same site's cloud relay. If the address cannot be reached during initial identification, use the **Nx Cloud** tab to find the site instead.
+
+### Nx Cloud sites
+
+Select **Nx Cloud**, enter your email and password, and click **Sign in to Nx Cloud**. The list combines owned, directly shared and organisation-provided sites by ID. Filter by site name and click a site to open its backup. Cloud relay access does not require port forwarding or knowing the server address. The UI reports the connection route with the loaded snapshot.
+
+Authenticator codes are requested when the account or selected site requires MFA, including retrying an incorrect code. Login and backup privileges are separate: cloud or local administrator/owner backup rights are required; shared **Power User** access does not grant them. The server's backup request is authoritative. Errors identify sign-in, permissions, certificate, connection and backup-format failures. Endpoint compatibility fallbacks occur only when an API is unavailable, never after a permission denial. Fresh site authentication is used for the backup, with one bounded retry if Nx requests a fresh session.
+
+### Temporary data and sign-out
+
+The downloaded SQLite backup and extracted report stay in application memory. SQLite temporary storage also stays in memory; no temporary database file is created. The app checks SQLite integrity and the supported Nx schema before replacing the previous snapshot. Non-SQLite/proprietary backup formats cannot be opened. Downloads are limited to **128 MiB decoded**, with bounded JSON/base64 responses, a five-minute HTTP request limit and a ten-minute connection-operation limit. Closing the database releases the report and clears the retained download buffer; this is not a guarantee of forensic erasure of OS swap, crash dumps or every managed-memory copy.
+
+The backup covers the whole **site**, including its servers, cameras, users and configuration. It does not contain recorded video. **Save backup as…** and report exports are the explicit ways to retain data on disk. Credentials, MFA codes and tokens are not saved to preferences or browser storage. Cloud browsing expires after five idle minutes. Tokens are revoked after a backup, failure, cancellation, account switch or application shutdown where the service is reachable; failed revocation during an operation is reported and tokens are discarded locally. A refresh requires another sign-in.
+
+The underlying cloud relay/password flow was previously verified against Nx Witness 6.1.2.42921 in the batch script. Automated tests for this GUI cover local TLS certificate approval, direct and relay cloud tokens, MFA retry, permissions, fresh authentication, redirects, corrupt downloads, cancellation, in-memory loading and cleanup. They use synthetic servers and data. Discovery and other real server/network configurations still need field testing. To explicitly validate the Go connection path against the first account and one site from your own credentials CSV, run `NX_LIVE_ACCOUNTS_CSV=/path/to/accounts.csv go test -run '^TestLiveCloudMemoryBackup$' -v .`; this test downloads into memory and does not print account/site details or write a backup.
+
+Protocol references: [Nx authentication](https://support.networkoptix.com/hc/en-us/articles/32895719318935-Authenticate-using-the-Mediaserver-API), [cloud scopes](https://support.networkoptix.com/hc/en-us/articles/32896214893079-OAuth-API-specification), [cloud API](https://nxvms.com/cdb/docs/api/v1/swagger/index.html), [backup API](https://support.networkoptix.com/hc/en-us/articles/32895784410775-Back-up-and-restore-a-system-database-with-the-REST-API), and [Nx multicast discovery implementation](https://github.com/networkoptix/nx_open/blob/vms_6.1.2/vms/libs/nx_vms_common/src/nx/vms/discovery/udp_multicast_finder.cpp).
 
 The **Licences** table shows deactivations used and remaining. Remaining deactivations are calculated as `max(0, 3 - DEACTIVATIONS)`, matching Nx 6.1.2; an absent counter defaults to zero used and three remaining. Counts reflect the database snapshot and are not verified online. NVR and time-limited licences show **Not applicable**; invalid counters or incomplete licence metadata show **Unknown**, with the reason in **Details**. The separate remaining-activations value stays unavailable in Details and exports. Channel counts are licensed capacity, not activation counters. Licence keys are not transmitted, and exports include full keys even when camera passwords are hidden. See [report fields and export formats](../README.md#output) for the exact output contract.
 
@@ -105,6 +133,16 @@ Staged installers are retained under the user's cache directory in `nx-camera-in
 ## Screenshots
 
 These are captures of the running GUI with a generated **synthetic** database. Camera names, addresses in the documentation-only `192.0.2.0/24` range, and credentials are demonstration data.
+
+### Open a file, nearby server or cloud site
+
+![Open database with local file, nearby server and Nx Cloud tabs](screenshots/gui-open-database.png)
+
+![Nearby server discovery and manual address entry](screenshots/gui-nearby.png)
+
+![Certificate fingerprint approval before server authentication](screenshots/gui-certificate.png)
+
+![Owned, shared and organisation cloud sites](screenshots/gui-cloud-sites.png)
 
 ### Camera inventory — Linux GTK4
 

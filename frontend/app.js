@@ -1,12 +1,13 @@
 import { Call } from '/wails/runtime.js';
 import { initialiseAbout } from './about.js';
 import { renderInventory, sectionNames, sectionDescriptions } from './inventory.js';
+import { initialiseConnections } from './connections.js';
 
 const $ = id => document.getElementById(id);
 const call = (method, ...args) => Call.ByName(`main.DesktopService.${method}`, ...args);
 let current = null, busy = false, sortKey = 'name', sortDirection = 1;
 let activeSection = 'cameras';
-const controls = ['close', 'filter', 'apply-filter', 'clear-filter', 'reveal', 'export', 'virtual', 'refresh'];
+const controls = ['close', 'filter', 'apply-filter', 'clear-filter', 'reveal', 'export', 'virtual', 'refresh', 'save-backup'];
 function options() { return {filter: $('filter').value.trim(), reveal: current?.options.reveal || false, includeVirtual: $('virtual').checked}; }
 function enable() {
   for (const id of controls) $(id).disabled = busy || !current;
@@ -77,6 +78,9 @@ function render(view) {
   $('empty').hidden = !!view; $('table-wrap').hidden = !view;
   $('filename').textContent = view?.filename || 'No database selected';
   $('loaded-at').textContent = view ? 'Opened ' + new Date(view.loadedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Open a database to begin.';
+  $('source-route').textContent = view?.source.kind === 'server' ? view.source.route + ' · Temporary snapshot' : '';
+  $('save-backup').hidden = view?.source.kind !== 'server';
+  $('refresh').textContent = view?.source.kind === 'server' ? '↻ Refresh from server…' : '↻ Refresh';
   $('rows').replaceChildren();
   const summary = view?.report.summary;
   $('count').textContent = summary?.matched_records ?? '—';
@@ -106,13 +110,18 @@ function render(view) {
   }
   showSection(); enable();
 }
-async function openDatabase() { await perform(async () => { const view = await call('OpenDatabase'); if (view) render(view); }); }
+const connections = initialiseConnections({call, render, perform, message, setBusy: value => { busy = value; enable(); }});
+async function openDatabase() { if (!busy) { try { await connections.open(); } catch(e) { message(e.message, true); } } }
 $('open').addEventListener('click', openDatabase); $('open-empty').addEventListener('click', openDatabase);
 $('close').addEventListener('click', () => perform(async () => { await call('CloseDatabase'); render(null); }));
 $('filter-form').addEventListener('submit', event => { event.preventDefault(); perform(async () => render(await call('View', options()))); });
 $('clear-filter').addEventListener('click', () => perform(async () => render(await call('View', {...options(), filter:''}))));
 $('virtual').addEventListener('change', () => perform(async () => render(await call('View', options()))));
-$('refresh').addEventListener('click', () => perform(async () => { render(await call('Refresh', options())); message('Database snapshot refreshed.'); }));
+$('refresh').addEventListener('click', () => {
+  if (current?.source.kind === 'server') { connections.open(current.source).catch(e => message(e.message,true)); return; }
+  perform(async () => { render(await call('Refresh', options())); message('Database snapshot refreshed.'); });
+});
+$('save-backup').addEventListener('click', () => perform(async () => { const name = await call('SaveBackup'); if (name) message('Saved backup to ' + name); }));
 $('reveal').addEventListener('click', () => perform(async () => {
   const next = {...options(), reveal: !current.options.reveal};
   if (!next.reveal) {

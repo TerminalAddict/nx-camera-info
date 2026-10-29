@@ -6,11 +6,11 @@ A desktop GUI and standalone command-line tool for listing camera information an
 
 ## Desktop GUI
 
-The Wails v3 desktop application provides native Open/Save dialogs and menus, system light/dark appearance, and platform-adapted controls. Open a database and browse **Cameras**, **Users**, **System & servers**, **Storage**, and **Licences**. Filter cameras, reveal or hide camera passwords, inspect stored details, and export a full report or an individual section as CSV or JSON. The same reports are available on every supported GUI and CLI platform.
+The Wails v3 desktop application provides native Open/Save dialogs and menus, system light/dark appearance, and platform-adapted controls. **Open database…** offers a local file, a nearby/manually entered Nx server, or an **Nx Cloud** site. Connect with a local or cloud administrator account to download and open a temporary backup entirely in memory. Cloud browsing includes owned, shared and organisation-provided sites, with authenticator-code prompts when needed. Browse **Cameras**, **Users**, **System & servers**, **Storage**, and **Licences**; filter cameras, reveal or hide camera passwords, and export CSV or JSON. The same reports are available on every supported GUI and CLI platform. See [server and cloud connections](docs/GUI.md#server-and-cloud-connections) for permissions, certificate handling and memory limits.
 
 ![NX Camera Info GUI on Linux, showing synthetic camera inventory](docs/screenshots/gui-linux-inventory.png)
 
-Get the installers from [release v0.5.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.5.0). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
+Get the installers from [release v0.6.0](https://github.com/TerminalAddict/nx-camera-info/releases/tag/v0.6.0). See the [GUI installation and usage guide](docs/GUI.md) for dependencies, screenshots, keyboard shortcuts, and build instructions.
 
 The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout the app, desktop launchers, and installers.
 
@@ -18,12 +18,12 @@ The [project branding](docs/BRANDING.md) uses the same CCTV/info icon throughout
 
 | System | GUI installer / package |
 | --- | --- |
-| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.5.0-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
-| Linux ARM64 | `nx-camera-info-gui-0.5.0-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
-| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.5.0-windows-amd64-setup.exe` |
-| Windows ARM64 | `nx-camera-info-gui-0.5.0-windows-arm64-setup.exe` |
-| macOS Intel | `nx-camera-info-gui-0.5.0-macos-amd64.pkg` or `.dmg` |
-| macOS Apple Silicon | `nx-camera-info-gui-0.5.0-macos-arm64.pkg` or `.dmg` |
+| Linux Intel/AMD 64-bit | `nx-camera-info-gui-0.6.0-linux-amd64.deb`, `.rpm`, or `.tar.gz` |
+| Linux ARM64 | `nx-camera-info-gui-0.6.0-linux-arm64.deb`, `.rpm`, or `.tar.gz` |
+| Windows Intel/AMD 64-bit | `nx-camera-info-gui-0.6.0-windows-amd64-setup.exe` |
+| Windows ARM64 | `nx-camera-info-gui-0.6.0-windows-arm64-setup.exe` |
+| macOS Intel | `nx-camera-info-gui-0.6.0-macos-amd64.pkg` or `.dmg` |
+| macOS Apple Silicon | `nx-camera-info-gui-0.6.0-macos-arm64.pkg` or `.dmg` |
 
 The **About & updates** page can download, verify and launch an update with **Install and close**, then close the app automatically. Windows offers to reopen the app after setup; macOS uses its PKG installer, and Linux shows installation progress in a terminal. See the [update guide](docs/GUI.md#about-and-updates) for each package type and the one-time upgrade from older releases.
 
@@ -233,7 +233,7 @@ Exit codes: `0` successful read (including no matches or missing credentials); `
 - Effective stored credentials recovered for all 31 network camera records: 20 use `credentials`, and 11 fall back to `defaultCredentials`.
 - All 38 stored credential fields decoded structurally: 20 explicit and 18 default entries. Seven cameras have both fields; the explicit field takes precedence.
 
-These are saved credentials from this database snapshot. They have not been tested against the cameras, and the saved device addresses or passwords may have changed. The program makes no network connections and does not alter camera or Nx configuration. Virtual desktop records are omitted unless `--include-virtual` is supplied.
+These are saved credentials from this database snapshot. They have not been tested against the cameras, and the saved device addresses or passwords may have changed. The CLI makes no network connections. The GUI contacts Nx servers/cloud services when you request discovery or a backup, and GitHub when you request an update. Neither changes camera or Nx configuration. Virtual desktop records are omitted unless `--include-virtual` is supplied.
 
 ## Database and format support
 

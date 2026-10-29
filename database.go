@@ -127,13 +127,17 @@ func databaseFileURL(absolute string) *url.URL {
 // All reads run in one SQLite transaction, so camera records and properties
 // come from the same snapshot. mode=ro also honours any existing SQLite WAL.
 func readReport(ctx context.Context, opts Options) (Report, error) {
-	report := Report{Cameras: []Camera{}}
-	report.Summary.PasswordsRevealed = opts.ShowPasswords
 	db, err := openDatabase(opts.DB)
 	if err != nil {
-		return report, err
+		return Report{}, err
 	}
 	defer db.Close()
+	return readReportDatabase(ctx, opts, db)
+}
+
+func readReportDatabase(ctx context.Context, opts Options, db *sql.DB) (Report, error) {
+	report := Report{Cameras: []Camera{}}
+	report.Summary.PasswordsRevealed = opts.ShowPasswords
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return report, fmt.Errorf("read database: %w", err)
